@@ -35,7 +35,8 @@ A local MCP Memory Server with CLI interface, designed to prevent memory loss ac
 - **Storage:** SQLite (single file, `data/memory.db`)
 - **Embedding:** Ollama bge-m3 (local, always-on via launchd, 1024-dim vectors)
 - **Search:** Brute-force cosine similarity in memory (auto-upgradeable to sqlite-vec)
-- **Process management:** macOS launchd (KeepAlive + RunAtLoad)
+- **MCP transport:** stdio (Cursor spawns the process per session)
+- **Background tasks:** Separate lightweight scheduler daemon via macOS launchd, shares the same SQLite DB
 
 ---
 
@@ -103,7 +104,7 @@ Explicit memories (`source: "explicit"`) get importance +0.1 bonus.
 
 **`memory_store`**
 - Params: `content` (string), `type` (enum), `project?` (string), `title?` (string), `tags?` (string[]), `importance?` (number)
-- Behavior: Generate bge-m3 embedding → deduplicate (>0.85 similarity = update existing) → for task_state, replace same-project same-task active entry → auto-extract tags → store in SQLite
+- Behavior: Generate bge-m3 embedding → deduplicate (>0.85 similarity within same project + same type = update existing; this rule applies uniformly to ALL types — two pitfalls about the same issue merge, two decisions about the same topic merge, etc.) → for task_state specifically: additionally enforce single active entry per logical task per project (replace, not accumulate) → auto-extract tags → store in SQLite
 - Returns: `{ id, created | updated, title }`
 
 **`memory_update`**
@@ -304,11 +305,11 @@ At ~2-3 Cursor sessions/day:
 
 | Failure | Severity | Auto-Fix | Strategy |
 |---------|----------|----------|----------|
-| Ollama unresponsive | Medium | Yes | Retry 3× → degrade to FTS5 keyword search; mark embeddings as `pending`; auto-rebuild when Ollama returns |
+| Ollama unresponsive | Medium | Yes | Retry 3× → degrade to FTS5 keyword search (indexed columns: `title`, `content`, `tags`; FTS5 virtual table created at DB init alongside main tables); new memories stored with `embedding = NULL`; background retry every 5 min; when Ollama returns, batch-rebuild all NULL embeddings |
 | Missing/corrupt embedding | Low | Yes | Detect at startup + daily check → regenerate via Ollama |
 | SQLite corruption | High | Partial | Auto-restore from most recent daily backup |
 | Memory quality degradation | Medium | Yes | `memory_compact` merges redundant, archives stale entries |
-| MCP server crash | High | Yes | launchd KeepAlive auto-restarts |
+| MCP server crash | Low | N/A | MCP is stdio — Cursor re-spawns it on next tool call; no persistent state to lose (all state in SQLite). Scheduler daemon (launchd KeepAlive) handles background tasks independently. |
 | Disk full | High | No | Alert via Telegram + alert file |
 
 ### Automatic Backup
@@ -427,7 +428,8 @@ cursor-memory-server/
 │   │   ├── telegram.ts              ← Telegram Bot push
 │   │   └── alert-file.ts            ← Alert file write
 │   └── scheduler/
-│       └── scheduler.ts             ← Daily/weekly task runner
+│       ├── index.ts                 ← Scheduler daemon entry (separate process)
+│       └── tasks.ts                 ← Daily/weekly task definitions
 ├── data/                             ← Runtime data (gitignored)
 │   ├── memory.db
 │   ├── backups/
@@ -495,24 +497,38 @@ alwaysApply: true
 - Session start → check data/alerts/active-alert.md exists → if yes, read and inform user
 ```
 
-### Process Management
+### Process Architecture
+
+Two separate processes, sharing the same SQLite DB:
+
+**① MCP Server (stdio, Cursor-managed)**
+- Cursor spawns this process on demand via `mcp.json` config
+- Handles all MCP tool calls (store, recall, session_start, etc.)
+- Dies when Cursor session ends — stateless between launches (all state in SQLite)
+
+**② Scheduler Daemon (launchd, always-on)**
+- Lightweight background process for tasks that must run without Cursor
+- Responsibilities: daily backup, daily compact, weekly health report, Telegram alerts
+- Does NOT serve MCP — only reads/writes SQLite and sends notifications
 
 ```xml
-<!-- ~/Library/LaunchAgents/dev.memory-server.plist -->
+<!-- ~/Library/LaunchAgents/dev.memory-scheduler.plist -->
 <plist>
   <dict>
-    <key>Label</key><string>dev.memory-server</string>
+    <key>Label</key><string>dev.memory-scheduler</string>
     <key>ProgramArguments</key><array>
       <string>/usr/local/bin/node</string>
-      <string>/Users/johnmacmini/workspace/cursor-memory-server/dist/index.js</string>
+      <string>/Users/johnmacmini/workspace/cursor-memory-server/dist/scheduler.js</string>
     </array>
     <key>KeepAlive</key><true/>
     <key>RunAtLoad</key><true/>
-    <key>StandardOutPath</key><string>/Users/johnmacmini/workspace/cursor-memory-server/data/logs/stdout.log</string>
-    <key>StandardErrorPath</key><string>/Users/johnmacmini/workspace/cursor-memory-server/data/logs/stderr.log</string>
+    <key>StandardOutPath</key><string>/Users/johnmacmini/workspace/cursor-memory-server/data/logs/scheduler-stdout.log</string>
+    <key>StandardErrorPath</key><string>/Users/johnmacmini/workspace/cursor-memory-server/data/logs/scheduler-stderr.log</string>
   </dict>
 </plist>
 ```
+
+**SQLite concurrency:** Both processes access the same `memory.db`. SQLite WAL mode enables concurrent reads; writes are serialized by SQLite's internal locking — safe for two processes with low write frequency.
 
 ---
 
