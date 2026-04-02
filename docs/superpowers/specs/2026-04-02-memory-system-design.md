@@ -294,7 +294,45 @@ Create → Active Use → Cool Down → Archive/Merge → Cleanup
 | **Active Use** | Each recall hit → access_count +1, accessed_at refreshed → recency stays high |
 | **Cool Down** | Long unaccessed → recency_factor drops by decay_rate → excluded from session_start injection → still findable by memory_recall |
 | **Archive/Merge** | Daily compact: importance <0.1 → archived; similarity >0.9 with another → merge; completed task_state >7 days → archived |
-| **Cleanup** | Monthly: archived >90 days → physical delete. **Exception:** `source: "explicit"` memories are NEVER deleted |
+| **Pre-cleanup** | Archived memories approaching 90 days → trigger notification flow (see Graceful Deletion below) |
+| **Cleanup** | Only after user has downloaded/acknowledged → physical delete. **Exception:** `source: "explicit"` memories are NEVER deleted |
+
+### Graceful Deletion Protocol
+
+Memories are NEVER silently deleted. The following flow ensures the user always has a chance to backup:
+
+```
+Day 83: 记忆已归档 83 天
+    ↓
+Telegram 通知 + alert 文件:
+"以下 N 条记忆将在 7 天后被清理，请及时下载备份：
+ vega export --archived --before 90d --format json"
+    ↓
+Day 90: 检查用户是否已下载
+    ├── 已下载（vega export 被调用过）→ 执行清理
+    └── 未下载 → 延长 3 天缓冲期
+        ↓
+        每天发 Telegram 提醒:
+        "⚠ 还有 N 天缓冲期，请尽快备份即将清理的记忆"
+        ↓
+Day 93: 再次检查
+    ├── 已下载 → 执行清理
+    └── 仍未下载 → 再延长 3 天（最多延长 2 次 = 6 天）
+        ↓
+Day 96: 最终检查
+    ├── 已下载 → 执行清理
+    └── 仍未下载 → 标记为 "cleanup_blocked"，不清理
+        → Telegram: "记忆清理已暂停，等待你手动处理"
+        → 直到用户执行 vega export 或 vega cleanup --confirm
+```
+
+**"已下载"的判定：** 系统记录 `vega export` 命令的最后执行时间。如果在通知发出后有过 export 操作且覆盖了待清理的记忆范围，则视为已下载。
+
+**CLI 命令：**
+```bash
+vega export --archived --before 90d --format json -o ~/backups/vega-archive.json
+vega cleanup --confirm    # 手动确认清理被阻塞的记忆
+```
 
 ### Type-Specific Rules
 
@@ -607,7 +645,35 @@ Two separate processes, sharing the same SQLite DB:
 2. **Agent is FORBIDDEN from sending sensitive info** to any external service, person, or API unless explicitly authorized by the user
 3. **Memory system must not store raw sensitive values** — if a conversation contains `OPENAI_API_KEY=sk-xxxx`, the memory should reference "OpenAI API key is configured" NOT the actual key value
 
-### Implementation
+### Encryption at Rest
+
+防止被入侵后记忆泄露：
+
+| Layer | Method | Purpose |
+|-------|--------|---------|
+| **SQLite 加密** | SQLCipher (AES-256) 或 better-sqlite3 + 自定义加密层 | 整个数据库文件加密，无密钥无法读取 |
+| **密钥管理** | macOS Keychain (`security` CLI) 存储加密密钥 | 密钥不落盘为明文，不在 .env 里 |
+| **HTTP API 传输** | Tailscale 已提供 WireGuard 加密隧道 | 远程访问链路加密 |
+| **API 认证** | API key (auto-generated, hashed stored) | 远程客户端身份验证 |
+| **备份加密** | 备份文件同样是加密后的 SQLite | 备份被拷走也无法读取 |
+
+**入侵场景防护：**
+
+```
+攻击者获取了 memory.db 文件
+    → SQLCipher 加密，无密钥无法打开
+    → 密钥在 macOS Keychain 中，需要系统登录密码
+
+攻击者获取了远程 API 访问
+    → 需要 API key（不在文件系统明文存储）
+    → Tailscale 网络本身需要设备授权
+
+攻击者获取了 export 备份文件
+    → export 输出可选加密: vega export --encrypt --format json
+    → 加密的 export 需要密码才能解读
+```
+
+### Sensitive Data Filter
 
 - `memory_store` runs a sensitive data filter before storage:
   - Regex patterns for common secrets: API keys, tokens, passwords, private keys, connection strings
@@ -824,6 +890,102 @@ The `accessed_projects` field (JSON array) records which projects have retrieved
 
 ---
 
+## Multi-Platform Extensibility
+
+Vega 不绑定 Cursor — 通过三层接口服务任何 AI 工具：
+
+```
+┌─────────────────────────────────────────────────────┐
+│                 Vega Core (library)                  │
+├──────────┬──────────┬───────────┬──────────────────┤
+│ MCP      │ CLI      │ HTTP API  │ Plugin SDK       │
+│ (stdio)  │ (shell)  │ (REST)    │ (future)         │
+├──────────┼──────────┼───────────┼──────────────────┤
+│ Cursor   │ Claude   │ Remote    │ OpenClaw         │
+│          │ Code     │ Cursor    │ lossless-claw    │
+│          │ Codex    │ Web UI    │ Custom agents    │
+│          │ Scripts  │ (future)  │                  │
+└──────────┴──────────┴───────────┴──────────────────┘
+```
+
+### 各平台接入方式
+
+| Platform | Interface | How to Connect |
+|----------|-----------|---------------|
+| **Cursor** | MCP (stdio) | `mcp.json` 注册，Agent 直接调用工具 |
+| **Claude Code** | CLI | 在 CLAUDE.md 里写规则：`遇到问题先跑 vega recall "..." --json` |
+| **Codex CLI** | CLI | 在 AGENTS.md 里写规则，通过 shell 调用 `vega` 命令 |
+| **OpenClaw** | HTTP API / Plugin SDK | lossless-claw 可配置外部记忆源，或开发 Vega 适配插件 |
+| **其他 MCP 客户端** | MCP (stdio) | 任何支持 MCP 的工具都能直接接入 |
+| **自动化脚本** | CLI / HTTP API | `vega recall --json` 或 `curl http://localhost:3271/api/recall` |
+
+### OpenClaw 集成路径
+
+由于用户已有 OpenClaw + lossless-claw 运营经验，预留集成接口：
+
+- Vega HTTP API 兼容 lossless-claw 的 `ingest/assemble` 概念
+- 可选：开发一个 OpenClaw 插件适配器，将 Vega 作为 lossless-claw 的外部存储后端
+- 两套系统可以共存：OpenClaw 用自己的 lcm.db，Vega 用自己的 memory.db，通过 API 做双向同步
+
+---
+
+## Testing & Benchmarking
+
+### 压力测试
+
+| Test | Method | Target |
+|------|--------|--------|
+| **写入吞吐** | 批量 store 1000 条记忆，测量总耗时 | < 30s（含 embedding 生成） |
+| **检索延迟** | 在 1000/5000/10000 条记忆下 recall | < 50ms / < 100ms / < 200ms |
+| **并发写入** | MCP + CLI + HTTP API 同时写入 | SQLite WAL 无死锁，数据一致 |
+| **Ollama 压力** | 连续 100 次 embedding 请求 | bge-m3 无 OOM，延迟稳定 |
+| **远程同步** | 客户端离线产生 50 条记忆后重连同步 | < 10s 全部同步完成，无重复 |
+
+### 基准测试
+
+| Metric | How to Measure | Baseline |
+|--------|---------------|----------|
+| **Token 节省** | 对比 session_start 注入 vs 加载整个 common-fixes.md | 目标：节省 50%+ tokens |
+| **记忆精度** | 手动评估 top-5 recall 结果的相关性 (1-5 分) | 目标：平均 ≥ 4.0 |
+| **查重准确率** | 故意存入重复内容，检查是否正确合并 | 目标：95%+ 正确合并 |
+| **遗漏率** | 故意排除不该记的内容，检查是否正确过滤 | 目标：90%+ 正确排除 |
+| **DB 大小效率** | 每条记忆的平均存储开销 | 目标：< 10KB/条 |
+
+### 测试命令
+
+```bash
+vega benchmark --suite all        # 运行全部基准测试
+vega benchmark --suite write      # 只测写入
+vega benchmark --suite recall     # 只测检索
+vega benchmark --report           # 生成测试报告
+```
+
+---
+
+## Reference Implementations
+
+调研了现有记忆系统的成功案例，以下是对 Vega 设计有借鉴价值的部分：
+
+| System | Key Idea Worth Borrowing | How Vega Applies It |
+|--------|-------------------------|-------------------|
+| **OpenClaw lossless-claw** | SQLite 作为无损原始存储 + 摘要层 + search/expand 工具按需钻取 | Vega 的 SQLite + embedding + recall 设计直接继承此思路 |
+| **LangMem** | 热路径工具（低延迟 store/search）+ 后台整合任务 分离 | Vega 的 MCP 即时工具 + Scheduler 后台 compact/insight 完全对应 |
+| **mem0** | 多维度 scope（user / session / agent）+ 只注入 top-k 控制噪音 | Vega 的 project + scope(project/global) + token budget 机制 |
+| **Letta (MemGPT)** | 显式命名记忆块（human/persona）作为一等公民 | Vega 的 5+1 种记忆类型（task_state 到 insight）是类似思路 |
+| **Zep** | 时序感知 + 关系图谱 | Vega 暂不做图谱，但 accessed_at/created_at 时序权重 + 跨项目自动提升是轻量版时序感知 |
+
+### 与 Vega 的差异化
+
+| 维度 | 其他系统 | Vega |
+|------|---------|------|
+| 部署 | 多数需要云服务或 Postgres | 纯本地 SQLite + Ollama，零外部依赖 |
+| LLM 依赖 | mem0/Letta 核心流程依赖 LLM | 仅 embedding（本地），智能决策交给宿主 Agent |
+| 平台 | 各自绑定特定框架 | 三接口（MCP/CLI/HTTP）服务任何 AI 工具 |
+| 安全 | 多数不加密 | SQLCipher 加密 + Keychain 密钥管理 |
+| 记忆保护 | 静默删除或手动管理 | 删除前强制通知 + 下载确认 + 缓冲期 |
+
+---
+
 ## Design Decisions Log
 
 | Decision | Choice | Reasoning |
@@ -843,3 +1005,7 @@ The `accessed_projects` field (JSON array) records which projects have retrieved
 | Cross-project | Auto-promote scope when accessed by ≥2 projects | No manual classification needed |
 | Self-evolution | Rule-based pattern detection → insight type | Weekly analysis, no extra LLM cost |
 | Security | Redact sensitive values, read-only agent access | Prevent API keys/tokens from leaking into memory store |
+| Encryption | SQLCipher + macOS Keychain | DB file encrypted at rest; key not stored in plaintext |
+| Graceful deletion | Notify → download → confirm → delete | Memories never silently lost; user always has backup chance |
+| Multi-platform | MCP + CLI + HTTP API + Plugin SDK (future) | Not locked to Cursor; any AI tool can connect |
+| Benchmarking | Built-in `vega benchmark` command | Measurable quality and performance from day one |
