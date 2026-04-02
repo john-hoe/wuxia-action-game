@@ -53,7 +53,7 @@ Mac mini (主机)                          远程电脑 (客户端)
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | TEXT (UUID) | Primary key |
-| `type` | TEXT | `task_state` \| `preference` \| `project_context` \| `decision` \| `pitfall` |
+| `type` | TEXT | `task_state` \| `preference` \| `project_context` \| `decision` \| `pitfall` \| `insight` |
 | `project` | TEXT | Project identifier (e.g. "content-factory") |
 | `title` | TEXT | Short descriptive title |
 | `content` | TEXT | Full memory content |
@@ -66,7 +66,7 @@ Mac mini (主机)                          远程电脑 (客户端)
 | `accessed_at` | TEXT | Last retrieval time |
 | `access_count` | INTEGER | Times retrieved |
 | `status` | TEXT | `active` \| `archived` |
-| `verified` | TEXT | `verified` \| `unverified` \| `rejected` — trustworthiness status |
+| `verified` | TEXT | `verified` \| `unverified` \| `rejected` \| `conflict` — trustworthiness status |
 | `scope` | TEXT | `project` \| `global` — cross-project visibility |
 | `accessed_projects` | TEXT | JSON array of project names that have retrieved this memory |
 
@@ -113,8 +113,18 @@ Explicit memories (`source: "explicit"`) get importance +0.1 bonus.
 
 **`memory_store`**
 - Params: `content` (string), `type` (enum), `project?` (string), `title?` (string), `tags?` (string[]), `importance?` (number)
-- Behavior: Generate bge-m3 embedding → deduplicate (>0.85 similarity within same project + same type = update existing; this rule applies uniformly to ALL types — two pitfalls about the same issue merge, two decisions about the same topic merge, etc.) → for task_state specifically: additionally enforce single active entry per logical task per project (replace, not accumulate) → auto-extract tags → store in SQLite
-- Returns: `{ id, created | updated, title }`
+- Behavior — ordered pipeline:
+  1. **Redact**: Run sensitive data filter, strip secrets
+  2. **Embed**: Generate bge-m3 embedding via Ollama
+  3. **Similarity search**: Find existing memories in same project + same type with >0.85 similarity
+  4. **Branch**:
+     - No match (similarity ≤0.85) → **create** new memory (`verified: "unverified"` if auto, `verified: "verified"` if explicit)
+     - Match found, content is consistent → **update** existing memory (merge content, refresh timestamps)
+     - Match found, content contradicts existing `verified` memory → **create** new memory with `verified: "conflict"`, link to conflicting memory ID in metadata; do NOT overwrite the existing one
+  5. **task_state special**: additionally enforce single active entry per logical task per project (replace, not accumulate)
+  6. **Auto-tag**: extract keywords from content
+  7. **Store**: write to SQLite
+- Returns: `{ id, action: "created" | "updated" | "conflict", title }`
 
 **`memory_update`**
 - Params: `id` (string), `content?` (string), `importance?` (number), `tags?` (string[])
@@ -139,8 +149,12 @@ Explicit memories (`source: "explicit"`) get importance +0.1 bonus.
 **`session_start`**
 - Params: `working_directory` (string), `task_hint?` (string)
 - Behavior: Infer project from directory (git repo name > dir name) → load active task_states + all preferences + project_context → if task_hint provided, semantic search for relevant pitfalls/decisions → assemble compressed context within token budget
-- Returns: `{ project, active_tasks, preferences, context, relevant, token_estimate }`
+- Returns: `{ project, active_tasks, preferences, context, relevant, recent_unverified, conflicts, proactive_warnings, token_estimate }`
+  - `recent_unverified`: up to 3 recent `unverified` memories for lightweight review
+  - `conflicts`: any memories with `verified: "conflict"` awaiting user resolution
+  - `proactive_warnings`: insights triggered by task_hint tag matches
 - Token budget: 2000 tokens (configurable), allocation: preference (~200) → task_state (~400) → project_context (~400) → remaining filled by semantic search results sorted by final_score
+- Ranking applies `verified` weight: `verified` ×1.0, `unverified` ×0.7, `rejected` excluded before ranking, `conflict` surfaced separately (not ranked)
 
 **`session_end`**
 - Params: `summary` (string), `completed_tasks?` (string[])
@@ -550,8 +564,9 @@ Two separate processes, sharing the same SQLite DB:
 
 **② Scheduler Daemon (launchd, always-on)**
 - Lightweight background process for tasks that must run without Cursor
-- Responsibilities: daily backup, daily compact, weekly health report, Telegram alerts
-- Does NOT serve MCP — only reads/writes SQLite and sends notifications
+- Responsibilities: daily backup, daily compact, weekly health report, weekly insight generation, Telegram alerts
+- Hosts the **HTTP API server** on port 3271 for remote client access (see Remote Access section)
+- Does NOT serve MCP — MCP is stdio only, handled by process ①
 
 ```xml
 <!-- ~/Library/LaunchAgents/dev.vega-memory.plist -->
