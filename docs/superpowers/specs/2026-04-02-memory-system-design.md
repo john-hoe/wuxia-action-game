@@ -1,41 +1,47 @@
-# Vibe Coding Memory System — Design Spec
+# Vega Memory System — Design Spec
 
 ## Overview
 
-A local MCP Memory Server with CLI interface, designed to prevent memory loss across AI coding sessions, reduce context token consumption, and enable self-evolving experience accumulation.
+A local MCP Memory Server with CLI interface and remote access support, designed to prevent memory loss across AI coding sessions, reduce context token consumption, and enable self-evolving experience accumulation through pattern recognition and proactive insights.
 
 **Core problem:** Every new Cursor conversation starts from zero — the Agent doesn't know what was done last time, what the current project state is, or what pitfalls were already solved. The existing `AGENTS.md` + `common-fixes.md` approach relies on loading entire files into context regardless of relevance, wasting tokens and mixing unrelated project experiences.
 
-**Solution:** A TypeScript MCP server backed by SQLite + Ollama bge-m3 embeddings, providing semantic memory storage, retrieval, and lifecycle management. Dual interface: MCP for Cursor, CLI for any terminal-based Agent or script.
+**Solution:** A TypeScript MCP server (codename: **Vega**) backed by SQLite + Ollama bge-m3 embeddings, providing semantic memory storage, retrieval, lifecycle management, and self-evolving insights. Triple interface: MCP for Cursor, CLI (`vega`) for any terminal-based Agent or script, HTTP API for remote access.
 
 ---
 
 ## Architecture
 
 ```
-                        ┌─────────────────┐
-                        │   Core Logic    │
-                        │   (library)     │
-                        └────────┬────────┘
-                          ┌──────┴──────┐
-                          ↓             ↓
-                   ┌────────────┐  ┌─────────┐
-                   │ MCP Server │  │   CLI   │
-                   │  (Cursor)  │  │ (终端)   │
-                   └──────┬─────┘  └────┬────┘
-                          ↓             ↓
-                   ┌─────────────────────────┐
-                   │       SQLite DB         │
-                   │  + Ollama bge-m3        │
-                   │  (localhost:11434)       │
-                   └─────────────────────────┘
+Mac mini (主机)                          远程电脑 (客户端)
+┌────────────────────────────────┐      ┌────────────────────────────┐
+│         Core Logic             │      │     Vega Client            │
+│         (library)              │      │  ┌───────┐  ┌───────┐     │
+│  ┌──────┐ ┌─────┐ ┌────────┐  │      │  │MCP    │  │CLI    │     │
+│  │MCP   │ │CLI  │ │HTTP API│◄─┼──────┼──│(stdio)│  │(vega) │     │
+│  │(stdio│ │(vega│ │(远程)  │  │ Tail │  └───┬───┘  └───┬───┘     │
+│  │)     │ │)    │ │        │  │ scale│      ↓          ↓         │
+│  └──┬───┘ └──┬──┘ └───┬────┘  │      │  ┌──────────────────┐     │
+│     ↓        ↓       ↓       │      │  │ Local SQLite     │     │
+│  ┌─────────────────────────┐  │      │  │ Cache + Sync     │     │
+│  │     SQLite (主库)        │  │      │  └──────────────────┘     │
+│  │  + Ollama bge-m3        │  │      └────────────────────────────┘
+│  └─────────────────────────┘  │
+│  ┌─────────────────────────┐  │
+│  │  Scheduler Daemon       │  │
+│  │  (launchd, always-on)   │  │
+│  └─────────────────────────┘  │
+└────────────────────────────────┘
 ```
 
+- **Project name:** vega-memory / CLI command: `vega`
 - **Language:** TypeScript
 - **Storage:** SQLite (single file, `data/memory.db`)
 - **Embedding:** Ollama bge-m3 (local, always-on via launchd, 1024-dim vectors)
 - **Search:** Brute-force cosine similarity in memory (auto-upgradeable to sqlite-vec)
 - **MCP transport:** stdio (Cursor spawns the process per session)
+- **HTTP API:** Express/Fastify server for remote access (runs inside scheduler daemon)
+- **Remote access:** Tailscale network, local cache + auto-sync on client machines
 - **Background tasks:** Separate lightweight scheduler daemon via macOS launchd, shares the same SQLite DB
 
 ---
@@ -60,6 +66,9 @@ A local MCP Memory Server with CLI interface, designed to prevent memory loss ac
 | `accessed_at` | TEXT | Last retrieval time |
 | `access_count` | INTEGER | Times retrieved |
 | `status` | TEXT | `active` \| `archived` |
+| `verified` | TEXT | `verified` \| `unverified` \| `rejected` — trustworthiness status |
+| `scope` | TEXT | `project` \| `global` — cross-project visibility |
+| `accessed_projects` | TEXT | JSON array of project names that have retrieved this memory |
 
 ### Session
 
@@ -161,26 +170,29 @@ Global command after `npm link`:
 
 ```bash
 # Memory operations
-memory store "<content>" --type <type> --project <project>
-memory recall "<query>" [--project <p>] [--type <t>] [--json|--brief|--verbose]
-memory list [--project <p>] [--type <t>] [--sort <s>]
-memory update <id> [--importance <n>] [--tags <t>]
-memory delete <id>
+vega store "<content>" --type <type> --project <project>
+vega recall "<query>" [--project <p>] [--type <t>] [--json|--brief|--verbose]
+vega list [--project <p>] [--type <t>] [--sort <s>]
+vega update <id> [--importance <n>] [--tags <t>]
+vega delete <id>
 
 # Session
-memory session-start --dir <path> [--hint "<text>"]
-memory session-end --summary "<text>" [--completed <id1,id2>]
+vega session-start --dir <path> [--hint "<text>"]
+vega session-end --summary "<text>" [--completed <id1,id2>]
 
 # Maintenance
-memory health [--json]
-memory diagnose [--issue "<description>"]
-memory compact [--project <p>]
-memory stats
+vega health [--json]
+vega diagnose [--issue "<description>"]
+vega compact [--project <p>]
+vega stats
 
 # Import / Export
-memory import <file.md>
-memory export --format md|json
-memory snapshot
+vega import <file.md>
+vega export --format md|json
+vega snapshot
+
+# Remote setup (on new machine)
+vega setup --server <tailscale-ip>
 ```
 
 All commands support `--json` for machine-readable output (Agent-friendly).
@@ -371,8 +383,8 @@ Zero human intervention throughout the entire degrade → fallback → recover c
   "notifications": {
     "telegram": {
       "enabled": true,
-      "bot_token": "env:MEMORY_TG_BOT_TOKEN",
-      "chat_id": "env:MEMORY_TG_CHAT_ID"
+      "bot_token": "env:VEGA_TG_BOT_TOKEN",
+      "chat_id": "env:VEGA_TG_CHAT_ID"
     },
     "alert_file": {
       "enabled": true,
@@ -387,7 +399,7 @@ Zero human intervention throughout the entire degrade → fallback → recover c
 ## Project Structure
 
 ```
-cursor-memory-server/
+vega-memory/
 ├── package.json
 ├── tsconfig.json
 ├── .env                              ← Secrets (gitignored)
@@ -423,12 +435,25 @@ cursor-memory-server/
 │   │       ├── session.ts
 │   │       ├── health.ts
 │   │       ├── import-export.ts
-│   │       └── maintenance.ts
+│   │       ├── maintenance.ts
+│   │       └── setup.ts             ← Remote machine setup command
+│   ├── api/
+│   │   ├── server.ts                ← HTTP API server (Express/Fastify)
+│   │   ├── auth.ts                  ← API key authentication middleware
+│   │   └── routes.ts                ← REST endpoints mirroring MCP tools
+│   ├── sync/
+│   │   ├── client.ts                ← Remote sync client logic
+│   │   └── queue.ts                 ← Pending writes queue for offline mode
+│   ├── insights/
+│   │   ├── patterns.ts              ← Pattern detection (tag clustering, repeat offenders)
+│   │   └── generator.ts             ← Insight memory generation
+│   ├── security/
+│   │   └── redactor.ts              ← Sensitive data detection & redaction
 │   ├── notify/
 │   │   ├── telegram.ts              ← Telegram Bot push
 │   │   └── alert-file.ts            ← Alert file write
 │   └── scheduler/
-│       ├── index.ts                 ← Scheduler daemon entry (separate process)
+│       ├── index.ts                 ← Scheduler daemon entry (separate process, includes HTTP API)
 │       └── tasks.ts                 ← Daily/weekly task definitions
 ├── data/                             ← Runtime data (gitignored)
 │   ├── memory.db
@@ -450,17 +475,33 @@ cursor-memory-server/
 ### MCP Server Registration
 
 ```json
-// ~/.cursor/mcp.json
+// ~/.cursor/mcp.json (Mac mini — server mode)
 {
   "mcpServers": {
-    "memory": {
+    "vega": {
       "command": "node",
-      "args": ["/Users/johnmacmini/workspace/cursor-memory-server/dist/index.js"],
+      "args": ["/Users/johnmacmini/workspace/vega-memory/dist/index.js"],
       "env": {
-        "MEMORY_DB_PATH": "/Users/johnmacmini/workspace/cursor-memory-server/data/memory.db",
+        "VEGA_DB_PATH": "/Users/johnmacmini/workspace/vega-memory/data/memory.db",
         "OLLAMA_BASE_URL": "http://localhost:11434",
-        "MEMORY_TG_BOT_TOKEN": "<to be provided>",
-        "MEMORY_TG_CHAT_ID": "<to be provided>"
+        "VEGA_TG_BOT_TOKEN": "<to be provided>",
+        "VEGA_TG_CHAT_ID": "<to be provided>"
+      }
+    }
+  }
+}
+
+// Remote machine — client mode (auto-generated by `vega setup`)
+{
+  "mcpServers": {
+    "vega": {
+      "command": "node",
+      "args": ["vega-memory/dist/index.js"],
+      "env": {
+        "VEGA_MODE": "client",
+        "VEGA_SERVER_URL": "http://100.x.x.x:3271",
+        "VEGA_API_KEY": "<auto-generated>",
+        "VEGA_CACHE_DB": "~/.vega/cache.db"
       }
     }
   }
@@ -480,13 +521,14 @@ alwaysApply: true
 ## Memory System Rules
 
 ### Normal Mode (MCP available)
-- Session start → call memory.session_start(working_directory, task_hint)
-- Task completed → call memory.memory_store(type: "task_state")
-- Decision made → call memory.memory_store(type: "decision")
-- Bug fixed → call memory.memory_store(type: "pitfall")
-- New preference discovered → call memory.memory_store(type: "preference")
-- User says "记住/remember/记得" → call memory.memory_store(source: "explicit")
-- Session ending / context long → call memory.session_end(summary)
+- Session start → call vega.session_start(working_directory, task_hint)
+- Task completed → call vega.memory_store(type: "task_state")
+- Decision made → call vega.memory_store(type: "decision")
+- Bug fixed → call vega.memory_store(type: "pitfall")
+- New preference discovered → call vega.memory_store(type: "preference")
+- User says "记住/remember/记得" → call vega.memory_store(source: "explicit")
+- Session ending / context long → call vega.session_end(summary)
+- Before storing → verify content does NOT fall into any exclusion category
 
 ### Fallback Mode (MCP unavailable)
 - Session start → read data/snapshots/memory-snapshot.md
@@ -512,18 +554,18 @@ Two separate processes, sharing the same SQLite DB:
 - Does NOT serve MCP — only reads/writes SQLite and sends notifications
 
 ```xml
-<!-- ~/Library/LaunchAgents/dev.memory-scheduler.plist -->
+<!-- ~/Library/LaunchAgents/dev.vega-memory.plist -->
 <plist>
   <dict>
-    <key>Label</key><string>dev.memory-scheduler</string>
+    <key>Label</key><string>dev.vega-memory</string>
     <key>ProgramArguments</key><array>
       <string>/usr/local/bin/node</string>
-      <string>/Users/johnmacmini/workspace/cursor-memory-server/dist/scheduler.js</string>
+      <string>/Users/johnmacmini/workspace/vega-memory/dist/scheduler.js</string>
     </array>
     <key>KeepAlive</key><true/>
     <key>RunAtLoad</key><true/>
-    <key>StandardOutPath</key><string>/Users/johnmacmini/workspace/cursor-memory-server/data/logs/scheduler-stdout.log</string>
-    <key>StandardErrorPath</key><string>/Users/johnmacmini/workspace/cursor-memory-server/data/logs/scheduler-stderr.log</string>
+    <key>StandardOutPath</key><string>/Users/johnmacmini/workspace/vega-memory/data/logs/scheduler-stdout.log</string>
+    <key>StandardErrorPath</key><string>/Users/johnmacmini/workspace/vega-memory/data/logs/scheduler-stderr.log</string>
   </dict>
 </plist>
 ```
@@ -542,10 +584,236 @@ Two separate processes, sharing the same SQLite DB:
 
 ---
 
+## Security & Sensitive Information
+
+### Core Rules
+
+1. **Agent can only READ sensitive info** (API keys, tokens, passwords, server IPs) — NEVER modify or delete unless explicitly authorized by the user
+2. **Agent is FORBIDDEN from sending sensitive info** to any external service, person, or API unless explicitly authorized by the user
+3. **Memory system must not store raw sensitive values** — if a conversation contains `OPENAI_API_KEY=sk-xxxx`, the memory should reference "OpenAI API key is configured" NOT the actual key value
+
+### Implementation
+
+- `memory_store` runs a sensitive data filter before storage:
+  - Regex patterns for common secrets: API keys, tokens, passwords, private keys, connection strings
+  - If detected: strip the sensitive value, store only the contextual reference
+  - Log a warning: "Sensitive data detected and redacted from memory"
+- The filter is configurable via `config.json` with custom patterns
+
+---
+
+## Remote Access & Multi-Device Sync
+
+### Architecture
+
+Mac mini is the **primary server** (always-on). Remote machines run a **thin client** that connects over Tailscale.
+
+### Mac mini: HTTP API Server
+
+The scheduler daemon is extended to serve an authenticated HTTP API:
+
+- **Endpoint:** `http://<tailscale-ip>:3271`
+- **Auth:** API key (generated during setup, stored in client `config.json`)
+- **Endpoints mirror MCP tools:** `/api/store`, `/api/recall`, `/api/session/start`, `/api/session/end`, `/api/health`, etc.
+
+### Remote Machine: Vega Client
+
+Operates in `client` mode — all operations forwarded to Mac mini, with local cache for offline resilience.
+
+```
+Online:  CLI/MCP → HTTP request to Mac mini → response
+Offline: CLI/MCP → local SQLite cache → queue writes to pending
+Reconnect: auto-detect Mac mini reachable → sync pending writes → refresh cache
+```
+
+### Local Cache Strategy
+
+- Full mirror of memories relevant to the user (synced periodically)
+- New memories created offline → stored in `~/.vega/pending/`
+- On reconnect: pending memories sent to Mac mini through normal dedup pipeline
+- Cache refresh: pull latest memories after sync
+
+### One-Command Setup
+
+```bash
+# On any new machine (requires Node.js + Tailscale)
+npx vega-memory setup --server <tailscale-ip>
+
+# What it does:
+# 1. Installs vega-memory globally
+# 2. Connects to Mac mini, generates API key
+# 3. Creates ~/.vega/ with config.json + local cache
+# 4. Registers MCP server in ~/.cursor/mcp.json (client mode)
+# 5. Copies memory.mdc rule to .cursor/rules/
+# 6. Syncs initial memory snapshot
+# 7. Done — permanent, no re-setup needed
+```
+
+Alternative: `curl -fsSL http://<tailscale-ip>:3271/setup | bash`
+
+### Client Config
+
+```json
+// ~/.vega/config.json (auto-generated by setup)
+{
+  "mode": "client",
+  "server": "http://100.x.x.x:3271",
+  "api_key": "<auto-generated>",
+  "cache_db": "~/.vega/cache.db",
+  "sync_interval_minutes": 5
+}
+```
+
+---
+
+## Memory Trustworthiness
+
+### Verification Status
+
+Every memory has a `verified` field:
+
+| Status | Meaning | Retrieval Weight | How It Gets Set |
+|--------|---------|-----------------|-----------------|
+| `verified` | Confirmed accurate | Normal (×1.0) | User explicitly stored, or user confirmed during review |
+| `unverified` | Auto-extracted, not yet confirmed | Reduced (×0.7) | Default for all auto-extracted memories |
+| `rejected` | User marked as incorrect | Excluded from search | User says "this is wrong" |
+
+### Lightweight Review Mechanism
+
+During `session_start`, include up to 3 recent `unverified` memories in the response:
+
+```
+recent_unverified: [
+  { id: "abc", title: "Phase 3 选用 ASS 字幕格式", created_at: "..." },
+  { id: "def", title: "用户不喜欢过多注释", created_at: "..." }
+]
+```
+
+Cursor Rule instructs Agent to briefly mention these:
+> "上次我自动记了：① Phase 3 选用 ASS 字幕格式 ② 不喜欢过多注释。有错的告诉我。"
+
+- User says "没问题" → batch update to `verified`
+- User says "第一条不对" → mark `rejected` or update content
+- No response → stays `unverified`, continues at reduced weight
+
+### Contradiction Detection
+
+When `memory_store` finds an existing memory with >0.85 similarity but significantly different content:
+- Do NOT silently overwrite
+- Mark the new memory as `conflict` status
+- Surface both versions during next `session_start` for user resolution
+- Agent presents: "记忆冲突：旧版说 X，新版说 Y。哪个是对的？"
+
+---
+
+## Self-Evolution: Insights Layer
+
+Beyond storing memories, the system identifies patterns and generates proactive insights.
+
+### Insight Generation
+
+A special memory type `insight` (auto-generated, never manually created):
+
+| Field | Example |
+|-------|---------|
+| type | `insight` |
+| content | "FFmpeg 相关任务：8 条踩坑记录中 5 条与文件路径相关（62%）。建议开始 FFmpeg 任务时优先确认路径配置。" |
+| tags | `["ffmpeg", "pattern"]` |
+| source | `auto` |
+| importance | 0.75 |
+
+### Pattern Detection (Rule-Based, No LLM Needed)
+
+Run during weekly health check:
+
+| Pattern | Detection Method | Insight Example |
+|---------|-----------------|-----------------|
+| **Tag clustering** | Count pitfalls by tag | "FFmpeg: 8 pitfalls, 5 about paths (62%)" |
+| **Repeat offenders** | Same tag appears in pitfalls across sessions | "中文渲染 issues recur every ~2 weeks" |
+| **Project risk areas** | Pitfall density by project module | "content-factory/pipeline/ has 3× more pitfalls than other dirs" |
+| **Decision patterns** | Cluster decisions by topic | "你在数据库选型时 3/4 次选了 SQLite" |
+| **Preference stability** | Detect preference changes over time | "你的注释风格偏好在上月改变过一次" |
+
+### Proactive Warning
+
+During `session_start`, if `task_hint` matches tags with known patterns:
+
+```
+session_start(task_hint: "修复 FFmpeg 视频合成")
+→ 检测到 tag "ffmpeg" 有 insight
+→ 返回:
+  proactive_warnings: [
+    "⚠ FFmpeg 任务历史统计：62% 的问题与文件路径有关，建议优先确认 font/media 路径配置"
+  ]
+```
+
+---
+
+## Memory Exclusion Rules
+
+The following content types must NOT be stored as memories:
+
+| Category | Examples | Detection |
+|----------|----------|-----------|
+| **Emotional/complaints** | "这个 API 真垃圾"、"又出 bug 了烦死了" | Sentiment keywords without actionable content |
+| **Failed debug attempts** | "试了换端口 3001 没用" | Unless the failure itself is the lesson |
+| **One-time queries** | "这个报错什么意思"、"解释下这段代码" | Question without lasting conclusion |
+| **Pasted raw data** | 200 lines of logs, someone else's code | Large paste blocks without distilled conclusion |
+| **Common knowledge** | "Python for 循环怎么写" | Already in documentation / basic knowledge |
+| **One-time commands** | "跑 npm install"、"重启服务器" | Imperative commands without reusable context |
+| **Inconclusive exploration** | Browsed files but made no decision | No resulting action or conclusion |
+| **Meta-discussion** | Talking about the memory system itself | Self-referential, not project knowledge |
+| **Non-coding tasks** | "帮我写封邮件"、"查天气" | Unrelated to development work |
+
+### Implementation
+
+Cursor Rule instructs Agent: "Before calling `memory_store`, verify the content does not fall into any exclusion category. When in doubt, do NOT store."
+
+The MCP server does NOT enforce exclusion — the Agent is responsible for filtering. This keeps the server simple and the rules in one place (Cursor Rule).
+
+---
+
+## Cross-Project Experience Sharing
+
+### Scope Field
+
+Each memory has a `scope` field:
+
+| Scope | Meaning | Retrieval Behavior |
+|-------|---------|-------------------|
+| `project` | Relevant to one project | Only returned when searching within that project |
+| `global` | Universally applicable | Returned for ALL projects |
+
+### Auto-Promotion Rules
+
+| Rule | Behavior |
+|------|----------|
+| `preference` type | Always `scope: "global"` at creation |
+| `project_context` type | Always `scope: "project"` (by definition) |
+| Other types | Start as `scope: "project"` |
+| Accessed by ≥2 different projects | Auto-promote to `scope: "global"` |
+
+### Tracking
+
+The `accessed_projects` field (JSON array) records which projects have retrieved this memory. When a `memory_recall` hit comes from a different project than the memory's `project` field, that project name is appended to `accessed_projects`. When `len(accessed_projects) >= 2`, scope is promoted to `global`.
+
+### session_start Retrieval Order
+
+```
+1. All preference (global, always loaded)
+2. Active task_state for current project
+3. project_context for current project
+4. All scope="global" memories (pitfall, decision, insight)
+5. Semantic search with task_hint across all projects (weight ×0.5 for non-current project)
+```
+
+---
+
 ## Design Decisions Log
 
 | Decision | Choice | Reasoning |
 |----------|--------|-----------|
+| Project name | vega-memory / `vega` CLI | Named after user's first OpenClaw agent |
 | Language | TypeScript | MCP SDK reference implementation; best Cursor ecosystem alignment |
 | Storage | SQLite | Single-user local system; zero ops overhead |
 | Embedding | Ollama bge-m3 (local) | Already running via launchd; best multilingual model; zero API cost |
@@ -555,3 +823,8 @@ Two separate processes, sharing the same SQLite DB:
 | Fallback | Markdown snapshot | Natural degradation to existing file-based approach |
 | Notifications | Telegram Bot + alert file | Real-time push + in-Cursor awareness |
 | CLI | Shared core with MCP | Any terminal Agent can access memories via shell |
+| Remote access | HTTP API + Tailscale + local cache | Mac mini as primary, remote machines as syncing clients |
+| Memory trust | verified/unverified/rejected | Auto-extracted memories are degraded until confirmed |
+| Cross-project | Auto-promote scope when accessed by ≥2 projects | No manual classification needed |
+| Self-evolution | Rule-based pattern detection → insight type | Weekly analysis, no extra LLM cost |
+| Security | Redact sensitive values, read-only agent access | Prevent API keys/tokens from leaking into memory store |
