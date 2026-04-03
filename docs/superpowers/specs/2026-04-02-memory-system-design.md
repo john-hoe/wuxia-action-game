@@ -986,6 +986,179 @@ vega benchmark --report           # 生成测试报告
 
 ---
 
+## Phased Delivery Plan
+
+### Phase 1 — Core (本机 Cursor + Claude Code + Codex 跑通)
+
+| Module | Content |
+|--------|---------|
+| Storage engine | SQLite + WAL + SQLCipher encryption + FTS5 |
+| Vector layer | Ollama bge-m3 embedding + brute-force search |
+| Hybrid search | Vector 70% + BM25 30% + RRF fusion |
+| Data model | 6 memory types + verified status + scope + version history |
+| MCP Server | stdio, all tools (store/recall/list/update/delete/session_start/session_end/health) |
+| CLI | `vega` command, all subcommands |
+| Tiered loading | L0 title / L1 summary / L2 full content; session_start injects L0+L1 only |
+| Auto-extraction | Agent auto-write + exclusion rules + sensitive data filter |
+| Dedup + conflict | >0.85 merge / contradiction detection / conflict status |
+| Trust system | verified / unverified / rejected + lightweight review |
+| Versioning | memory_versions table, old version saved on each update |
+| Lifecycle | Create → active → cool down → archive + graceful deletion protocol |
+| Cross-project scope | project / global + auto-promotion |
+| Security | SQLCipher + macOS Keychain + audit log |
+| Backup | Daily auto-backup + restore |
+| Fallback | Markdown snapshot + pending queue + recovery import |
+| Tool observation | Cursor Rule guides Agent to capture key tool outputs |
+| Platform rules | `.cursor/rules/memory.mdc` + `CLAUDE.md` rules + `AGENTS.md` rules |
+| Data migration | Import common-fixes.md + content-factory-lessons.md |
+| Health check | Realtime latency monitoring + memory_health tool |
+
+**Phase 1 acceptance criteria:**
+- Mac mini Cursor new session → Agent automatically knows last session state
+- Claude Code via `vega recall --json` retrieves memories
+- Codex CLI via `vega` commands reads/writes memories
+- Three tools working in parallel without conflicts
+- session_start token injection < 2000 (vs current common-fixes.md 4000+)
+
+### Phase 2 — Remote + Intelligence + Enhancement
+
+| Module | Content |
+|--------|---------|
+| HTTP API | Express/Fastify, runs inside scheduler daemon, API key auth |
+| Remote sync | Client local cache + online forwarding + offline pending + recovery sync |
+| One-command setup | `vega setup --server <ip>` |
+| Insights layer | Rule-based pattern detection + insight type + proactive warnings |
+| Telegram notifications | Error immediate / warning daily / weekly report |
+| Weekly reports | Health, performance trends, memory quality analysis |
+| Diagnostics export | memory_diagnose + handoff_prompt |
+| Stress testing | `vega benchmark` command, full suite |
+| Cloud backup | Optional export to iCloud / S3 |
+| CRDT merging | Multi-agent conflict-free concurrent writes |
+| OpenClaw integration | Vega adapter plugin / bidirectional sync |
+| sqlite-vec upgrade | Auto-detect + switch when performance threshold hit |
+
+**Phase 2 acceptance criteria:**
+- Remote laptop accesses Mac mini memories via Tailscale, offline mode works
+- System proactively warns "FFmpeg tasks: watch out for path issues"
+- Telegram receives alerts and weekly reports
+- `vega benchmark` produces baseline metrics
+
+---
+
+## Codex Collaboration Mechanism
+
+Codex executes implementation; Cursor (this agent) reviews and manages.
+
+### Task Delivery Format
+
+Each Codex task is a markdown file in `docs/superpowers/plans/tasks/`:
+
+```
+docs/superpowers/plans/tasks/
+├── phase1-01-storage-engine.md
+├── phase1-02-embedding-layer.md
+├── phase1-03-hybrid-search.md
+├── ...
+└── phase1-NN-data-migration.md
+```
+
+Each task file contains:
+- Goal (1 sentence)
+- Files to create/modify (exact paths)
+- Step-by-step instructions with code
+- Test commands with expected output
+- Commit message
+
+### Workflow
+
+```
+Cursor: 写任务文件 → 放到 tasks/ 目录
+    ↓
+User: 给 Codex 指定任务文件路径
+    ↓
+Codex: 读取任务文件 → 执行 → 提交代码
+    ↓
+Cursor: Review 代码是否符合 spec
+    ├── 通过 → 标记任务完成，更新 Notion 看板
+    └── 不通过 → 写 review 反馈文件 → Codex 修复
+```
+
+### Codex AGENTS.md Rules
+
+在 vega-memory 项目根目录放一份 AGENTS.md，让 Codex 知道项目规范：
+
+```markdown
+# Vega Memory System — Codex Rules
+- Read the task file FIRST before doing anything
+- Follow the spec: docs/superpowers/specs/2026-04-02-memory-system-design.md
+- Use TypeScript strict mode
+- Use better-sqlite3 for SQLite
+- Use @xenova/transformers or direct Ollama HTTP API for embeddings
+- Run tests after each task
+- Commit after each task with the specified commit message
+```
+
+---
+
+## Audit Log
+
+### Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | INTEGER | Auto-increment primary key |
+| `timestamp` | TEXT | ISO timestamp |
+| `actor` | TEXT | `mcp:cursor` \| `cli` \| `api:<device-name>` |
+| `action` | TEXT | `store` \| `recall` \| `update` \| `delete` \| `export` \| `session_start` \| `session_end` |
+| `memory_id` | TEXT | Target memory ID (if applicable) |
+| `detail` | TEXT | Brief description (query content, operation params) |
+| `ip` | TEXT | Source IP (for HTTP API access) |
+
+### CLI Access
+
+```bash
+vega audit                          # Recent 50 entries
+vega audit --actor "api:*"          # Remote access only
+vega audit --action delete          # Delete operations only
+vega audit --since 2026-04-01       # By date range
+vega audit --memory <id>            # All operations on a specific memory
+```
+
+---
+
+## Graceful Export & Backup
+
+### Export Formats
+
+| Format | Command | Use Case |
+|--------|---------|----------|
+| JSON | `vega export --format json -o backup.json` | Machine-readable, full metadata |
+| Markdown | `vega export --format md -o backup.md` | Human-readable |
+| Encrypted JSON | `vega export --format json --encrypt -o backup.enc.json` | Secure transfer |
+
+### Export Targets
+
+```json
+// config.json — optional cloud backup
+{
+  "backup": {
+    "local": {
+      "enabled": true,
+      "path": "data/backups/"
+    },
+    "cloud": {
+      "enabled": false,
+      "provider": "s3 | icloud | gdrive",
+      "config": {}
+    }
+  }
+}
+```
+
+Cloud backup is **disabled by default**, configurable when needed.
+
+---
+
 ## Design Decisions Log
 
 | Decision | Choice | Reasoning |
