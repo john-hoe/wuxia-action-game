@@ -46,11 +46,13 @@ var _iframes_timer: SceneTreeTimer = null
 @onready var skill_system: SkillSystem = $SkillSystem
 
 func _ready() -> void:
+	add_to_group("player")
 	target_depth_y = depth_y_positions[current_depth]
 	position.y = target_depth_y
 	combo_engine.combo_advanced.connect(_on_combo_advanced)
 	combo_engine.combo_ended.connect(_on_combo_ended)
 	combo_engine.aerial_state = $AerialState
+	combo_engine.load_derivation_table(ComboData.DERIVATIONS)
 	$AerialState.aerial_attack.connect(_on_aerial_attack)
 
 func _physics_process(delta: float) -> void:
@@ -261,5 +263,5 @@ func _on_combo_ended(_final_segment: int) -> void:
 		label.text = "Combo: 0/12"
 
 func _on_aerial_attack(attack_num: int) -> void:
-	combo_engine.total_hits += 1
+	combo_engine.register_hit()
 	$Sprite.color = Color(0.9, 0.7, 0.2)  # gold for aerial hits

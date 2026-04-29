@@ -37,7 +37,8 @@ func try_attack() -> bool:
 
 func _start_combo() -> void:
 	current_segment = 1
-	total_hits = 1
+	if total_hits == 0:
+		total_hits = 1
 	combo_advanced.emit(1)
 	_schedule_window()
 
@@ -117,6 +118,9 @@ func _trigger_derivation(segment: int, skill_id: String, _data) -> void:
 	if total_hits >= MAX_COMBO:
 		var recovery_timer := get_tree().create_timer(0.6)
 		recovery_timer.timeout.connect(_force_recovery)
+
+func register_hit() -> void:
+	total_hits += 1
 
 func load_derivation_table(table: Dictionary) -> void:
 	derivation_table = table
