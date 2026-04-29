@@ -10,11 +10,18 @@ import time
 from pathlib import Path
 from typing import Iterable
 
-try:
-    from PIL import Image, UnidentifiedImageError
-except ImportError:  # pragma: no cover - depends on local environment
-    print("Error: Pillow is required. pip install Pillow", file=sys.stderr)
-    sys.exit(1)
+_DEPS_AVAILABLE = False
+
+def _ensure_deps() -> None:
+    global _DEPS_AVAILABLE, Image, UnidentifiedImageError
+    if _DEPS_AVAILABLE:
+        return
+    try:
+        from PIL import Image, UnidentifiedImageError
+        _DEPS_AVAILABLE = True
+    except ImportError:
+        print("Missing dependency. Run: pip install -r scripts/requirements.txt", file=sys.stderr)
+        sys.exit(1)
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -317,6 +324,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.input_dir.is_dir():
         print(f"Error: input directory not found: {args.input_dir}", file=sys.stderr)
         return 1
+
+    if args.mode != "none":
+        _ensure_deps()
 
     target_dir_for(args.output, args.category).mkdir(parents=True, exist_ok=True)
 

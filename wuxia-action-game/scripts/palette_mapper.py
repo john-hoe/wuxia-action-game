@@ -8,12 +8,19 @@ import json
 import sys
 from pathlib import Path
 
-try:
-    import numpy as np
-    from PIL import Image
-except ImportError:
-    print("pip install Pillow numpy", file=sys.stderr)
-    sys.exit(1)
+_DEPS_AVAILABLE = False
+
+def _ensure_deps() -> None:
+    global _DEPS_AVAILABLE, np, Image
+    if _DEPS_AVAILABLE:
+        return
+    try:
+        import numpy as np
+        from PIL import Image
+        _DEPS_AVAILABLE = True
+    except ImportError:
+        print("Missing dependencies. Run: pip install -r scripts/requirements.txt", file=sys.stderr)
+        sys.exit(1)
 
 
 def kmeans(pixels: np.ndarray, k: int, max_iter: int = 20) -> np.ndarray:
@@ -193,6 +200,8 @@ def main() -> int:
     if args.colors <= 0:
         print("Error: --colors must be greater than 0", file=sys.stderr)
         return 1
+
+    _ensure_deps()
 
     input_path = args.input
     output_path = args.output if args.output is not None else default_output_path(input_path)
