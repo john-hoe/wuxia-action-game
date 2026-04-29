@@ -50,6 +50,8 @@ func _ready() -> void:
 	position.y = target_depth_y
 	combo_engine.combo_advanced.connect(_on_combo_advanced)
 	combo_engine.combo_ended.connect(_on_combo_ended)
+	combo_engine.aerial_state = $AerialState
+	$AerialState.aerial_attack.connect(_on_aerial_attack)
 
 func _physics_process(delta: float) -> void:
 	_handle_depth_input()
@@ -257,3 +259,7 @@ func _on_combo_ended(_final_segment: int) -> void:
 	var label := get_node_or_null("/root/Game/DebugLabel")
 	if label:
 		label.text = "Combo: 0/12"
+
+func _on_aerial_attack(attack_num: int) -> void:
+	combo_engine.total_hits += 1
+	$Sprite.color = Color(0.9, 0.7, 0.2)  # gold for aerial hits

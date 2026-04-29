@@ -15,10 +15,13 @@ var total_hits: int = 0
 var derivation_table: Dictionary = {}
 var is_in_window: bool = false
 var combo_queued: bool = false
+var aerial_state: AerialState = null
 var _window_timer: SceneTreeTimer = null
 var _anim_timer: SceneTreeTimer = null
 
 func try_attack() -> bool:
+	if aerial_state and aerial_state.is_airborne:
+		return aerial_state.try_aerial_attack()
 	if total_hits >= MAX_COMBO:
 		_force_recovery()
 		return false
@@ -107,6 +110,8 @@ func _trigger_derivation(segment: int, skill_id: String, _data) -> void:
 	total_hits += 1
 	_cancel_timers()
 	derivation_triggered.emit(segment, skill_id)
+	if _data.get("effect", "") == "launch" and aerial_state:
+		aerial_state.enter_aerial(_get_player_node())
 	current_segment = 0
 	combo_queued = false
 	if total_hits >= MAX_COMBO:
@@ -115,3 +120,6 @@ func _trigger_derivation(segment: int, skill_id: String, _data) -> void:
 
 func load_derivation_table(table: Dictionary) -> void:
 	derivation_table = table
+
+func _get_player_node() -> Node2D:
+	return get_parent() as Node2D

@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://main00100000000000001"]
+[gd_scene load_steps=6 format=3 uid="uid://main00100000000000001"]
 
 [ext_resource type="Script" path="res://src/combat/player_controller.gd" id="1"]
 [ext_resource type="Script" path="res://src/combat/combo_engine.gd" id="2"]
 [ext_resource type="Script" path="res://src/combat/skill_system.gd" id="3"]
 [ext_resource type="Script" path="res://src/enemies/base_enemy.gd" id="4"]
+[ext_resource type="Script" path="res://src/combat/aerial_state.gd" id="5"]
 
 [node name="Game" type="Node2D"]
 
@@ -67,6 +68,9 @@ script = ExtResource("2")
 
 [node name="SkillSystem" type="Node" parent="Player"]
 script = ExtResource("3")
+
+[node name="AerialState" type="Node" parent="Player"]
+script = ExtResource("5")
 
 [node name="EnemyTest" type="CharacterBody2D" parent="."]
 position = Vector2(400, 540)
