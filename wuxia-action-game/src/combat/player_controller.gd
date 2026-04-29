@@ -22,6 +22,16 @@ const HUIFENG_KNOCKBACK: float = 200.0
 const HUIFENG_DAMAGE: float = 30.0
 var is_huifeng_animating: bool = false
 
+const NINGSHEN_PARRY_WINDOW: float = 0.8
+const NINGSHEN_PERFECT_WINDOW: float = 0.2
+const NINGSHEN_BUFF_DURATION: float = 3.0
+const NINGSHEN_BUFF_MULTIPLIER: float = 1.2
+
+var is_parrying: bool = false
+var parry_timer: float = 0.0
+var has_damage_buff: bool = false
+var _buff_timer: SceneTreeTimer = null
+
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
 
@@ -36,6 +46,10 @@ func _physics_process(delta: float) -> void:
 		_process_dash(delta)
 	else:
 		_handle_movement(delta)
+	if is_parrying:
+		parry_timer -= delta
+		if parry_timer <= 0.0:
+			_end_parry(false)
 	_apply_depth_transition(delta)
 
 func _handle_depth_input() -> void:
@@ -66,6 +80,8 @@ func _input(event: InputEvent) -> void:
 		_try_cast_pojun()
 	if event.is_action_pressed("skill_2"):
 		_try_cast_huifeng()
+	if event.is_action_pressed("skill_3"):
+		_try_cast_ningshen()
 
 func _try_cast_pojun() -> void:
 	if not skill_system.try_cast("pojun"):
@@ -96,7 +112,7 @@ func _process_dash(delta: float) -> void:
 		$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
 
 func _hit_enemy_with_pojun(enemy: Node) -> void:
-	enemy.apply_hit(stun_duration=POJUN_STUN_DURATION, knockback_force=300.0, damage=25.0, attacker_pos=global_position)
+	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0, global_position)
 
 func _try_cast_huifeng() -> void:
 	if not skill_system.try_cast("huifeng"):
@@ -119,17 +135,66 @@ func _execute_huifeng() -> void:
 		var body := result.collider
 		if body is BaseEnemy:
 			var pull_dir := (global_position - body.global_position).normalized()
-			body.apply_hit(
-				stun_duration=0.3,
-				knockback_force=HUIFENG_KNOCKBACK,
-				damage=HUIFENG_DAMAGE,
-				attacker_pos=global_position,
-				extra_impulse=pull_dir * HUIFENG_PULL_STRENGTH
-			)
+			body.apply_hit(0.3, HUIFENG_KNOCKBACK, HUIFENG_DAMAGE, global_position, pull_dir * HUIFENG_PULL_STRENGTH)
 
 	await get_tree().create_timer(0.4).timeout
 	is_huifeng_animating = false
 	$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
+
+func _try_cast_ningshen() -> void:
+	if not skill_system.try_cast("ningshen"):
+		return
+	_start_parry()
+
+func _start_parry() -> void:
+	is_parrying = true
+	parry_timer = NINGSHEN_PARRY_WINDOW
+	$Sprite.color = Color(0.3, 0.3, 1.0)  # blue tint for parry
+
+func _end_parry(success: bool) -> void:
+	is_parrying = false
+	$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
+	if success:
+		_execute_counter()
+
+func _execute_counter() -> void:
+	has_damage_buff = true
+	var is_perfect: bool = parry_timer > NINGSHEN_PARRY_WINDOW - NINGSHEN_PERFECT_WINDOW
+	var damage := 80.0 if is_perfect else 40.0
+
+	var enemies := _get_enemies_in_range(150.0)
+	for enemy in enemies:
+		enemy.apply_hit(0.6, 400.0, damage, global_position)
+
+	if _buff_timer and _buff_timer.time_left > 0:
+		_buff_timer.timeout.disconnect(_clear_damage_buff)
+	_buff_timer = get_tree().create_timer(NINGSHEN_BUFF_DURATION)
+	_buff_timer.timeout.connect(_clear_damage_buff)
+
+func _clear_damage_buff() -> void:
+	has_damage_buff = false
+
+func _get_enemies_in_range(radius: float) -> Array:
+	var space_state := get_world_2d().direct_space_state
+	var query := PhysicsShapeQueryParameters2D.new()
+	var circle := CircleShape2D.new()
+	circle.radius = radius
+	query.shape = circle
+	query.transform = Transform2D(0, global_position)
+
+	var results: Array = space_state.intersect_shape(query)
+	var enemies: Array = []
+	for result in results:
+		var body := result.collider
+		if body is BaseEnemy:
+			enemies.append(body)
+	return enemies
+
+func take_damage(amount: float, source: Node) -> void:
+	if is_parrying:
+		_end_parry(true)
+		return
+	# Take damage normally in future iterations
 
 func _on_combo_advanced(segment: int) -> void:
 	match segment:

@@ -5,6 +5,7 @@ class_name BaseEnemy
 var health: float = 100.0
 var is_stunned: bool = false
 var _stun_timer: SceneTreeTimer = null
+var attack_damage: float = 10.0
 
 func apply_hit(stun_duration: float, knockback_force: float, damage: float, attacker_pos: Vector2, extra_impulse: Vector2 = Vector2.ZERO) -> void:
     health -= damage
@@ -19,6 +20,10 @@ func apply_hit(stun_duration: float, knockback_force: float, damage: float, atta
         velocity.x += kb_dir * knockback_force
     if health <= 0:
         queue_free()
+
+func _on_attack_hitbox_body_entered(body: Node) -> void:
+    if body.has_method("take_damage"):
+        body.take_damage(attack_damage, self)
 
 func _unstun() -> void:
     is_stunned = false
