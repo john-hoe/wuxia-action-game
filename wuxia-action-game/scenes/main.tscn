@@ -1,19 +1,53 @@
 [gd_scene load_steps=2 format=3 uid="uid://main00100000000000001"]
 
-[ext_resource type="Script" path="res://src/combat/player_controller.gd" id="1_placeholder"]
+[ext_resource type="Script" path="res://src/combat/player_controller.gd" id="1"]
 
 [node name="Game" type="Node2D"]
 
-[node name="ColorRect" type="ColorRect" parent="."]
+[node name="Ground" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 960.0
+offset_bottom = 1080.0
+color = Color(0.3, 0.3, 0.3, 1)
+
+[node name="DepthLayers" type="Node2D" parent="."]
+
+[node name="Background" type="ColorRect" parent="DepthLayers"]
+offset_right = 1920.0
+offset_bottom = 400.0
+color = Color(0.12, 0.12, 0.12, 1)
+
+[node name="Midground" type="ColorRect" parent="DepthLayers"]
+offset_left = 0.0
+offset_top = 340.0
+offset_right = 1920.0
+offset_bottom = 740.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Foreground" type="ColorRect" parent="DepthLayers"]
+offset_left = 0.0
+offset_top = 680.0
 offset_right = 1920.0
 offset_bottom = 1080.0
-color = Color(0.15, 0.15, 0.15, 1)
+color = Color(0.28, 0.28, 0.28, 1)
 
-[node name="Label" type="Label" parent="."]
-offset_left = 810.0
-offset_top = 520.0
-offset_right = 1110.0
-offset_bottom = 560.0
-text = "Godot Web Export OK"
-horizontal_alignment = 1
-vertical_alignment = 1
+[node name="Player" type="CharacterBody2D" parent="."]
+script = ExtResource("1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("RectangleShape2D_48x96")
+
+[node name="Sprite" type="ColorRect" parent="Player"]
+offset_left = -24.0
+offset_top = -48.0
+offset_right = 24.0
+offset_bottom = 48.0
+color = Color(0.2, 0.4, 0.8, 1)
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+position_smoothing_enabled = true
+position_smoothing_speed = 5.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_48x96"]
+size = Vector2(48, 96)
