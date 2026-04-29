@@ -1,0 +1,31 @@
+[gd_resource type="Environment" load_steps=0 format=3 uid="uid://denv00000000000000001"]
+
+[resource]
+background_mode = 1
+background_color = Color(0.12, 0.16, 0.1, 1)
+fog_enabled = true
+fog_mode = 1
+fog_density = 0.008
+fog_light_color = Color(0.65, 0.78, 0.55, 1)
+fog_height_min = 0.0
+fog_height_max = 300.0
+fog_height_curve = 0.5
+glow_enabled = true
+glow_levels/1 = false
+glow_levels/2 = false
+glow_levels/3 = false
+glow_levels/4 = false
+glow_levels/5 = false
+glow_levels/6 = false
+glow_levels/7 = false
+glow_intensity = 0.4
+glow_strength = 1.0
+glow_bloom = 0.0
+glow_mix = 0.05
+glow_blend_mode = 2
+glow_hdr_luminance_cap = 12.0
+glow_hdr_scale = 2.0
+adjustment_enabled = true
+adjustment_brightness = 1.0
+adjustment_contrast = 1.0
+adjustment_saturation = 0.9

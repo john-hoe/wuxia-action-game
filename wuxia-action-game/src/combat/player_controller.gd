@@ -50,6 +50,7 @@ var player_health: float = PLAYER_MAX_HEALTH
 @onready var skill_system: SkillSystem = $SkillSystem
 @onready var hit_feedback: HitFeedback = $HitFeedback
 @onready var input_buffer: InputBuffer = $InputBuffer
+@onready var anim: Node = $PlayerAnimation
 
 func _ready() -> void:
 	add_to_group("player")
@@ -94,6 +95,9 @@ func _handle_movement(_delta: float) -> void:
 	var input_dir := Input.get_axis("move_left", "move_right")
 	if input_dir != 0.0:
 		facing_dir = input_dir
+		anim.play_walk()
+	else:
+		anim.play_idle()
 	velocity.x = input_dir * MOVE_SPEED
 	move_and_slide()
 
@@ -140,6 +144,7 @@ func _start_dash() -> void:
 	is_dashing = true
 	dash_timer = POJUN_DASH_DURATION
 	dash_direction = facing_dir
+	anim.play_dash()
 	$Sprite.color = Color(1.0, 0.5, 0.0)  # orange flash
 
 func _process_dash(delta: float) -> void:
@@ -185,6 +190,7 @@ func _try_cast_huifeng() -> void:
 
 func _execute_huifeng() -> void:
 	is_huifeng_animating = true
+	anim.play_skill("huifeng")
 	$Sprite.color = Color(0.5, 1.0, 0.5)  # green flash for AOE
 	hit_feedback.trigger_hitstop_with_shake(0.04, 3.0)
 
@@ -206,6 +212,7 @@ func _try_cast_ningshen() -> void:
 func _start_parry() -> void:
 	is_parrying = true
 	parry_timer = NINGSHEN_PARRY_WINDOW
+	anim.play_parry()
 	$Sprite.color = Color(0.3, 0.3, 1.0)  # blue tint for parry
 
 func _end_parry(success: bool) -> void:
@@ -237,6 +244,7 @@ func _start_dodge() -> void:
 	is_invulnerable = true
 	dodge_timer = DODGE_DURATION
 	dodge_cooldown_remaining = DODGE_COOLDOWN
+	anim.play_dodge()
 
 	var direction := Input.get_axis("move_left", "move_right")
 	if direction == 0.0:
@@ -279,6 +287,7 @@ func take_damage(amount: float, source: Node) -> void:
 	if is_parrying:
 		_end_parry(true)
 		return
+	anim.play_hurt()
 	player_health -= amount
 	if player_health <= 0:
 		player_health = 0
@@ -295,6 +304,7 @@ func _on_combo_advanced(segment: int) -> void:
 		2: $Sprite.color = Color(0.4, 0.3, 0.9)
 		3: $Sprite.color = Color(0.9, 0.4, 0.3)
 		4: $Sprite.color = Color(0.9, 0.2, 0.2)
+	anim.play_attack(segment)
 	_hit_enemies_in_melee(segment)
 	_update_debug_label()
 

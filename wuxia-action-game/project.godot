@@ -19,6 +19,7 @@ window/stretch/aspect="expand"
 [rendering]
 renderer/rendering_method="forward_plus"
 textures/canvas_textures/default_texture_filter=0
+rendering/environment/default_environment="res://default_environment.tres"
 
 [autoload]
 UIManager="*res://src/ui/ui_manager.gd"
