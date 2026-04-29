@@ -11,3 +11,10 @@ build/
 # Environment
 .env
 .env.*
+
+# OMC runtime
+.omc/
+.claude/
+
+# Non-game content (skill pack at repo level, not Godot project)
+audit-to-issue-skill/

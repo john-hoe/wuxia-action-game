@@ -1,0 +1,18 @@
+# OMC runtime
+.omc/
+.claude/
+.cursor/
+
+# Environment
+.env
+.env.*
+
+# Non-game content (skill pack, Vega Memory docs)
+audit-to-issue-skill/
+docs/superpowers/
+
+# Worktree isolation
+.worktrees/
+
+# OS
+.DS_Store
