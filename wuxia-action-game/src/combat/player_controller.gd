@@ -44,6 +44,7 @@ var _iframes_timer: SceneTreeTimer = null
 
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
+@onready var hit_feedback: HitFeedback = $HitFeedback
 
 func _ready() -> void:
 	add_to_group("player")
@@ -142,6 +143,7 @@ func _get_damage_multiplier() -> float:
 	return NINGSHEN_BUFF_MULTIPLIER if has_damage_buff else 1.0
 
 func _hit_enemy_with_pojun(enemy: Node) -> void:
+	hit_feedback.trigger_hitstop(0.05)
 	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0 * _get_damage_multiplier(), global_position, Vector2.ZERO, BaseEnemy.HitReaction.HEAVY_STAGGER)
 
 func _try_cast_huifeng() -> void:
@@ -154,6 +156,7 @@ func _try_cast_huifeng() -> void:
 func _execute_huifeng() -> void:
 	is_huifeng_animating = true
 	$Sprite.color = Color(0.5, 1.0, 0.5)  # green flash for AOE
+	hit_feedback.trigger_hitstop_with_shake(0.04, 3.0)
 
 	for enemy in _get_enemies_in_range(HUIFENG_RADIUS):
 		var pull_dir := (global_position - enemy.global_position).normalized()
@@ -185,6 +188,7 @@ func _execute_counter() -> void:
 	has_damage_buff = true
 	var is_perfect: bool = parry_timer > NINGSHEN_PARRY_WINDOW - NINGSHEN_PERFECT_WINDOW
 	var dmg := (40.0 * (2.0 if is_perfect else 1.0)) * _get_damage_multiplier()
+	hit_feedback.trigger_hitstop_with_shake(0.05, 4.0 if is_perfect else 2.0)
 
 	var enemies := _get_enemies_in_range(150.0)
 	for enemy in enemies:
