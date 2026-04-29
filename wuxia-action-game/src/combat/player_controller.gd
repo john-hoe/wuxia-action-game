@@ -49,6 +49,7 @@ func _ready() -> void:
 	target_depth_y = depth_y_positions[current_depth]
 	position.y = target_depth_y
 	combo_engine.combo_advanced.connect(_on_combo_advanced)
+	combo_engine.combo_ended.connect(_on_combo_ended)
 
 func _physics_process(delta: float) -> void:
 	_handle_depth_input()
@@ -104,6 +105,8 @@ func _input(event: InputEvent) -> void:
 		_start_dodge()
 
 func _try_cast_pojun() -> void:
+	if combo_engine.try_skill_derivation("pojun"):
+		return
 	if not skill_system.try_cast("pojun"):
 		return
 	_start_dash()
@@ -138,6 +141,8 @@ func _hit_enemy_with_pojun(enemy: Node) -> void:
 	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0 * _get_damage_multiplier(), global_position)
 
 func _try_cast_huifeng() -> void:
+	if combo_engine.try_skill_derivation("huifeng"):
+		return
 	if not skill_system.try_cast("huifeng"):
 		return
 	_execute_huifeng()
@@ -155,6 +160,8 @@ func _execute_huifeng() -> void:
 	$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
 
 func _try_cast_ningshen() -> void:
+	if combo_engine.try_skill_derivation("ningshen"):
+		return
 	if not skill_system.try_cast("ningshen"):
 		return
 	_start_parry()
@@ -242,3 +249,11 @@ func _on_combo_advanced(segment: int) -> void:
 		2: $Sprite.color = Color(0.4, 0.3, 0.9)
 		3: $Sprite.color = Color(0.9, 0.4, 0.3)
 		4: $Sprite.color = Color(0.9, 0.2, 0.2)
+	var label := get_node_or_null("/root/Game/DebugLabel")
+	if label:
+		label.text = "Combo: %d/12" % combo_engine.total_hits
+
+func _on_combo_ended(_final_segment: int) -> void:
+	var label := get_node_or_null("/root/Game/DebugLabel")
+	if label:
+		label.text = "Combo: 0/12"

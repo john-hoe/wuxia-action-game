@@ -5,12 +5,14 @@ signal combo_advanced(segment: int)
 signal combo_ended(final_segment: int)
 signal combo_window_opened(segment: int)
 signal combo_window_closed(segment: int)
+signal derivation_triggered(base_segment: int, skill_id: String)
 
 const MAX_COMBO: int = 12
 const CANCEL_WINDOW_FRAMES: int = 8
 
 var current_segment: int = 0
 var total_hits: int = 0
+var derivation_table: Dictionary = {}
 var is_in_window: bool = false
 var combo_queued: bool = false
 var _window_timer: SceneTreeTimer = null
@@ -90,3 +92,26 @@ func _force_recovery() -> void:
 	is_in_window = false
 	combo_queued = false
 	combo_ended.emit(finished_segment)
+
+func try_skill_derivation(skill_id: String) -> bool:
+	if not is_in_window or current_segment == 0:
+		return false
+	var seg_table: Dictionary = derivation_table.get(current_segment, {})
+	if not seg_table.has(skill_id):
+		return false
+	_trigger_derivation(current_segment, skill_id, seg_table[skill_id])
+	return true
+
+func _trigger_derivation(segment: int, skill_id: String, _data) -> void:
+	is_in_window = false
+	total_hits += 1
+	_cancel_timers()
+	derivation_triggered.emit(segment, skill_id)
+	current_segment = 0
+	combo_queued = false
+	if total_hits >= MAX_COMBO:
+		var recovery_timer := get_tree().create_timer(0.6)
+		recovery_timer.timeout.connect(_force_recovery)
+
+func load_derivation_table(table: Dictionary) -> void:
+	derivation_table = table

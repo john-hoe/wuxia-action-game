@@ -7,6 +7,16 @@
 
 [node name="Game" type="Node2D"]
 
+[node name="DebugLabel" type="Label" parent="."]
+offset_left = 860.0
+offset_top = 20.0
+offset_right = 1060.0
+offset_bottom = 50.0
+text = "Combo: 0/12"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+
 [node name="Ground" type="ColorRect" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
