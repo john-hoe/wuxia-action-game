@@ -1,8 +1,8 @@
 # src/combat/player_controller.gd
 extends CharacterBody2D
 
-@export var move_speed: float = 400.0
-@export var depth_switch_speed: float = 200.0
+const MOVE_SPEED: float = 400.0
+const DEPTH_SWITCH_SPEED: float = 200.0
 var current_depth: int = 1
 var target_depth_y: float
 var depth_y_positions: Array[float] = [740.0, 540.0, 340.0]
@@ -87,11 +87,11 @@ func _handle_depth_input() -> void:
 
 func _handle_movement(_delta: float) -> void:
 	var input_dir := Input.get_axis("move_left", "move_right")
-	velocity.x = input_dir * move_speed
+	velocity.x = input_dir * MOVE_SPEED
 	move_and_slide()
 
 func _apply_depth_transition(delta: float) -> void:
-	position.y = move_toward(position.y, target_depth_y, depth_switch_speed * delta)
+	position.y = move_toward(position.y, target_depth_y, DEPTH_SWITCH_SPEED * delta)
 	var target_scale := Vector2.ONE * depth_scales[current_depth]
 	scale = scale.lerp(target_scale, 10.0 * delta)
 	var darkness := float(2 - current_depth) * 0.2

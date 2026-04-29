@@ -90,6 +90,12 @@ position = Vector2(1600, 540)
 [node name="Mob3" parent="." instance=ExtResource("6")]
 position = Vector2(900, 340)
 
+[node name="Mob4" parent="." instance=ExtResource("6")]
+position = Vector2(600, 340)
+
+[node name="Mob5" parent="." instance=ExtResource("6")]
+position = Vector2(1200, 540)
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_48x96"]
 size = Vector2(48, 96)
 
