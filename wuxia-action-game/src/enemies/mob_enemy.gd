@@ -13,6 +13,7 @@ var attack_timer: float = 0.0
 var player_ref: Node2D = null
 var facing_dir: float = 1.0
 var _attack_windup_timer: SceneTreeTimer = null
+var _current_attack_type: int = 0  # 0 = punch (fast/weak), 1 = kick (slow/strong)
 
 func _ready() -> void:
 	health = 80.0
@@ -63,10 +64,11 @@ func _chase_player(dist: float) -> void:
 func _start_attack() -> void:
 	current_state = State.ATTACK
 	attack_timer = attack_cooldown
-	# Cancel previous windup timer
 	if _attack_windup_timer and _attack_windup_timer.time_left > 0:
 		_attack_windup_timer.timeout.disconnect(_execute_attack)
-	_attack_windup_timer = get_tree().create_timer(0.3)
+	_current_attack_type = randi() % 2
+	var windup: float = 0.4 if _current_attack_type == 1 else 0.2
+	_attack_windup_timer = get_tree().create_timer(windup)
 	_attack_windup_timer.timeout.connect(_execute_attack)
 
 func _execute_attack() -> void:
@@ -74,9 +76,19 @@ func _execute_attack() -> void:
 		return
 	if not player_ref:
 		return
-	if global_position.distance_to(player_ref.global_position) <= attack_range * 1.5:
-		player_ref.take_damage(attack_damage, self)
+	if _current_attack_type == 1:
+		_execute_kick()
+	else:
+		_execute_punch()
 	current_state = State.CHASE
+
+func _execute_punch() -> void:
+	if global_position.distance_to(player_ref.global_position) <= attack_range * 1.3:
+		player_ref.take_damage(8.0, self)
+
+func _execute_kick() -> void:
+	if global_position.distance_to(player_ref.global_position) <= attack_range * 1.8:
+		player_ref.take_damage(14.0, self)
 
 func _die() -> void:
 	current_state = State.DEAD

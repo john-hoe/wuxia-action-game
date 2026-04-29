@@ -11,3 +11,12 @@ build/
 # Environment
 .env
 .env.*
+
+# OMC runtime
+.omc/
+.claude/
+
+# Non-game docs
+data/
+docs/
+audit-to-issue-skill/

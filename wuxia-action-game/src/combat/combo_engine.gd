@@ -115,9 +115,8 @@ func _trigger_derivation(segment: int, skill_id: String, _data) -> void:
 		aerial_state.enter_aerial(_get_player_node())
 	current_segment = 0
 	combo_queued = false
-	if total_hits >= MAX_COMBO:
-		var recovery_timer := get_tree().create_timer(0.6)
-		recovery_timer.timeout.connect(_force_recovery)
+	combo_ended.emit(segment)
+	total_hits = 0
 
 func register_hit() -> void:
 	total_hits += 1

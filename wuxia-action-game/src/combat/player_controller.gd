@@ -41,6 +41,7 @@ var dodge_timer: float = 0.0
 var dodge_cooldown_remaining: float = 0.0
 var is_invulnerable: bool = false
 var _iframes_timer: SceneTreeTimer = null
+var facing_dir: float = 1.0
 
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
@@ -87,6 +88,8 @@ func _handle_depth_input() -> void:
 
 func _handle_movement(_delta: float) -> void:
 	var input_dir := Input.get_axis("move_left", "move_right")
+	if input_dir != 0.0:
+		facing_dir = input_dir
 	velocity.x = input_dir * MOVE_SPEED
 	move_and_slide()
 
@@ -132,7 +135,7 @@ func _try_cast_pojun() -> void:
 func _start_dash() -> void:
 	is_dashing = true
 	dash_timer = POJUN_DASH_DURATION
-	dash_direction = 1.0 if scale.x > 0 else -1.0
+	dash_direction = facing_dir
 	$Sprite.color = Color(1.0, 0.5, 0.0)  # orange flash
 
 func _process_dash(delta: float) -> void:
@@ -159,6 +162,16 @@ func _hit_enemy_with_pojun(enemy: Node) -> void:
 	hit_feedback.trigger_hitstop(0.05)
 	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0 * _get_damage_multiplier(), global_position, Vector2.ZERO, BaseEnemy.HitReaction.HEAVY_STAGGER, combo_engine.total_hits)
 
+func _hit_enemies_in_melee(segment: int) -> void:
+	var base_damage: float = 7.0 + segment * 3.0
+	var knockback: float = 80.0 + segment * 30.0
+	var stun: float = 0.15 + segment * 0.05
+	var reaction := BaseEnemy.HitReaction.HEAVY_STAGGER if segment >= 3 else BaseEnemy.HitReaction.LIGHT_STUN
+	hit_feedback.trigger_hitstop(0.04)
+	for enemy in _get_enemies_in_range(75.0):
+		enemy.apply_hit(stun, knockback, base_damage * _get_damage_multiplier(), global_position, Vector2.ZERO, reaction, combo_engine.total_hits)
+		break
+
 func _try_cast_huifeng() -> void:
 	if combo_engine.try_skill_derivation("huifeng"):
 		return
@@ -172,7 +185,7 @@ func _execute_huifeng() -> void:
 	hit_feedback.trigger_hitstop_with_shake(0.04, 3.0)
 
 	for enemy in _get_enemies_in_range(HUIFENG_RADIUS):
-		var pull_dir := (global_position - enemy.global_position).normalized()
+		var pull_dir: Vector2 = (global_position - enemy.global_position).normalized()
 		enemy.apply_hit(0.3, HUIFENG_KNOCKBACK, HUIFENG_DAMAGE * _get_damage_multiplier(), global_position, pull_dir * HUIFENG_PULL_STRENGTH, BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
 
 	await get_tree().create_timer(0.4).timeout
@@ -223,7 +236,7 @@ func _start_dodge() -> void:
 
 	var direction := Input.get_axis("move_left", "move_right")
 	if direction == 0.0:
-		direction = 1.0 if scale.x > 0 else -1.0
+		direction = facing_dir
 	velocity.x = direction * DODGE_SPEED
 
 	$Sprite.color = Color(1.0, 1.0, 1.0, 0.5)  # semi-transparent white for dodge
@@ -251,7 +264,7 @@ func _get_enemies_in_range(radius: float) -> Array:
 	var results: Array = space_state.intersect_shape(query)
 	var enemies: Array = []
 	for result in results:
-		var body := result.collider
+		var body: Node = result.collider
 		if body is BaseEnemy:
 			enemies.append(body)
 	return enemies
@@ -270,6 +283,7 @@ func _on_combo_advanced(segment: int) -> void:
 		2: $Sprite.color = Color(0.4, 0.3, 0.9)
 		3: $Sprite.color = Color(0.9, 0.4, 0.3)
 		4: $Sprite.color = Color(0.9, 0.2, 0.2)
+	_hit_enemies_in_melee(segment)
 	var label := get_node_or_null("/root/Game/DebugLabel")
 	if label:
 		label.text = "Combo: %d/12" % combo_engine.total_hits
@@ -282,3 +296,7 @@ func _on_combo_ended(_final_segment: int) -> void:
 func _on_aerial_attack(attack_num: int) -> void:
 	combo_engine.register_hit()
 	$Sprite.color = Color(0.9, 0.7, 0.2)  # gold for aerial hits
+	hit_feedback.trigger_hitstop(0.03)
+	for enemy in _get_enemies_in_range(90.0):
+		enemy.apply_hit(0.25, 120.0, 15.0 * _get_damage_multiplier(), global_position, Vector2(0, -80), BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
+		break

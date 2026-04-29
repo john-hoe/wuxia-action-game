@@ -49,6 +49,9 @@ offset_right = 1920.0
 offset_bottom = 1080.0
 color = Color(0.28, 0.28, 0.28, 1)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_48x96"]
+size = Vector2(48, 96)
+
 [node name="Player" type="CharacterBody2D" parent="."]
 script = ExtResource("1")
 
@@ -95,7 +98,3 @@ position = Vector2(600, 340)
 
 [node name="Mob5" parent="." instance=ExtResource("6")]
 position = Vector2(1200, 540)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_48x96"]
-size = Vector2(48, 96)
-
