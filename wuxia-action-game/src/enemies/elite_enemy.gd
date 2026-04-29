@@ -21,6 +21,7 @@ var _current_attack_type: int = 0  # 0=heavy_slash, 1=sweep, 2=charge
 var _patrol_origin: Vector2 = Vector2.ZERO
 var _patrol_target: Vector2 = Vector2.ZERO
 var _armor_regen_timer: float = 0.0
+@onready var anim: AnimationPlayer = $AnimationPlayer
 
 
 func _ready() -> void:
@@ -34,8 +35,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if health <= 0:
-		current_state = State.DEAD
-		queue_free()
+		_die()
 		return
 
 	if is_stunned and super_armor <= 0:
@@ -151,8 +151,21 @@ func _regenerate_armor(delta: float) -> void:
 	if super_armor < super_armor_max and current_state != State.STUNNED:
 		_armor_regen_timer += delta
 		if _armor_regen_timer >= 3.0:
-			super_armor = min(super_armor + 10.0, super_armor_max)
+			super_armor = minf(super_armor + 10.0, super_armor_max)
 			_armor_regen_timer = 0.0
+
+
+func _die() -> void:
+	if current_state == State.DEAD:
+		return
+	current_state = State.DEAD
+	collision_layer = 0
+	collision_mask = 0
+	velocity = Vector2.ZERO
+	if anim and anim.has_animation("death"):
+		anim.play("death")
+	await get_tree().create_timer(0.6).timeout
+	queue_free()
 
 
 func apply_hit(stun_duration: float, knockback_force: float, damage: float, attacker_pos: Vector2, extra_impulse: Vector2 = Vector2.ZERO, reaction: HitReaction = HitReaction.LIGHT_STUN, combo_count: int = 1) -> void:

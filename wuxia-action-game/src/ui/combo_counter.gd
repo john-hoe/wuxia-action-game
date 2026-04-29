@@ -34,8 +34,6 @@ func _display_combo(count: int) -> void:
 	else:
 		color = "white"
 
-	var text := "[center][color=%s]%d/%d[/color][/center]" % [color, count, _max_combo]
-	text = text.replace("[/color][/center]", "[/color][/center]")
 	text = "[center][color=%s]%d/%d[/color][/center]" % [color, count, _max_combo]
 	set_text(text)
 

@@ -95,8 +95,14 @@ func _execute_kick() -> void:
 		player_ref.take_damage(14.0, self)
 
 func _die() -> void:
+	if current_state == State.DEAD:
+		return
 	current_state = State.DEAD
+	collision_layer = 0
+	collision_mask = 0
+	velocity = Vector2.ZERO
 	_play_anim("death")
+	await get_tree().create_timer(0.6).timeout
 	queue_free()
 
 
