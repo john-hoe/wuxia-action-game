@@ -53,7 +53,11 @@
         {"id": "P2.11", "name": "UI 框架初版", "desc": "血条、技能冷却图标、连击计数器的基础 UI 样式（武侠风字体 + 墨韵边框）", "status": "pending", "evidence": "战斗中 UI 清晰可读且风格匹配"},
         {"id": "P2.12", "name": "色板映射脚本", "desc": "编写 Python 脚本：输入任意 AI 生成图 → 颜色空间压缩到 Style Bible 32 色调色板 → 输出统一风格图", "status": "pending", "evidence": "两张不同来源的图经脚本处理后色彩统一"},
         {"id": "P2.13", "name": "批量导入脚本", "desc": "Python 脚本：监控文件夹 → AI 出图自动去背景(RMBG) → 缩放 → 放入 Godot 资源目录对应位置", "status": "pending", "evidence": "AI 出图后 10s 内自动出现在 Godot 资源浏览器"},
-        {"id": "P2.14", "name": "Phase 2 验收：翠竹林完整可玩", "desc": "灰盒场景替换为翠竹林美术，主角 + 2 敌人在场景中战斗，帧率 60fps", "status": "pending", "evidence": "浏览器中翠竹林战斗录像 + 性能截图"}
+        {"id": "P2.14", "name": "Phase 2 验收：翠竹林完整可玩", "desc": "灰盒场景替换为翠竹林美术，主角 + 2 敌人在场景中战斗，帧率 60fps", "status": "pending", "evidence": "浏览器中翠竹林战斗录像 + 性能截图"},
+        {"id": "P2.15", "name": "角色资产质检通过", "desc": "对照 spec 中角色资产标准表逐项验收：分辨率≥512/256px、色板偏差 ΔE<8、骨骼数合规、动画帧率30fps、剪影辨识度通过", "status": "pending", "evidence": "质检清单 10 项全部打勾"},
+        {"id": "P2.16", "name": "场景资产质检通过", "desc": "对照 spec 中场景资产标准表逐项验收：分层≥3、纹理内存≤16MB、总面数≤8000tris、无缝拼接、色温偏差<500K、碰撞体匹配<4px", "status": "pending", "evidence": "质检清单 7 项全部打勾"},
+        {"id": "P2.17", "name": "特效资产质检通过", "desc": "对照 spec 中特效资产标准表逐项验收：帧数6-12帧、分辨率≥128px、粒子数≤200、α≤80%", "status": "pending", "evidence": "质检清单 4 项全部打勾"},
+        {"id": "P2.18", "name": "性能兼容验收（美术侧）", "desc": "纹理总内存<64MB桌面、Draw call主城≤80战斗≤50、.pck加载<3s(4G限速)", "status": "pending", "evidence": "Godot Debugger 截图 + Chrome DevTools 限速加载截图"}
       ]
     },
     {
@@ -127,7 +131,11 @@
         {"id": "P5.13", "name": "BGM 制作", "desc": "MiniMax + Suno 生成主题曲 + 战斗曲 × 3（普通/Boss/最终战）+ 主城曲 + 叙事曲，剪辑成可循环版本", "status": "pending", "evidence": "主城/关卡/Boss 战各有独立 BGM，循环无断点"},
         {"id": "P5.14", "name": "技能特效全量", "desc": "为所有技能及其派生制作命中特效序列帧（水墨 + 气劲风格），CPUParticles2D 粒子系统配置", "status": "pending", "evidence": "每个技能派生都有独特的视觉特效"},
         {"id": "P5.15", "name": "过场演出系统", "desc": "关键剧情节点（章节开头/结尾、Boss 登场、重大选择）的简易过场（镜头移动 + NPC 动作 + 文字 + 配音）", "status": "pending", "evidence": "章节开始和 Boss 登场有过场演出"},
-        {"id": "P5.16", "name": "Phase 5 验收：全量内容可玩", "desc": "从头到尾通完全部 6-8 关，所有系统正常运转，内容量足够", "status": "pending", "evidence": "完整通关录像 + 所有 Boss 击败截图"}
+        {"id": "P5.16", "name": "Phase 5 验收：全量内容可玩", "desc": "从头到尾通完全部 6-8 关，所有系统正常运转，内容量足够", "status": "pending", "evidence": "完整通关录像 + 所有 Boss 击败截图"},
+        {"id": "P5.17", "name": "打击音效质检通过", "desc": "对照 spec 中打击音效标准表逐项验收：WAV48k/16b源、OGGq5交付、时长100-500ms、响度-16LUFS±2、起音<15ms、同类型≥3变体、频率分布合规", "status": "pending", "evidence": "质检清单 7 项全部打勾 + ffprobe 批量检测报告"},
+        {"id": "P5.18", "name": "环境音效质检通过", "desc": "对照 spec 中环境音效标准表逐项验收：OGGq4、30-90s循环、首尾无缝<-40dB、响度-23LUFS±2、每场景1条专属", "status": "pending", "evidence": "质检清单 5 项全部打勾 + ffprobe 批量检测报告"},
+        {"id": "P5.19", "name": "BGM 质检通过", "desc": "对照 spec 中 BGM 标准表逐项验收：OGGq6、1.5-3min、循环无缝、响度-20LUFS(战斗)/-23LUFS(主城)、风格标签完整、Boss战曲独立", "status": "pending", "evidence": "质检清单 6 项全部打勾 + BGM 元数据清单"},
+        {"id": "P5.20", "name": "音频整体交付质检通过", "desc": "对照 spec 中音频整体交付标准：总资产≥50文件、总大小<30MB、并发≤8轨、DC offset<0.001、降级方案验证(断网测试)", "status": "pending", "evidence": "质检清单 5 项全部打勾 + 断网静默降级截图"}
       ]
     },
     {
@@ -155,13 +163,13 @@
     }
   ],
   "summary": {
-    "total_tasks": 95,
+    "total_tasks": 103,
     "phase_counts": {
       "P1": 20,
-      "P2": 14,
+      "P2": 18,
       "P3": 16,
       "P4": 15,
-      "P5": 16,
+      "P5": 20,
       "P6": 14
     },
     "total_weeks_min": 14,
