@@ -55,12 +55,12 @@ func _schedule_window() -> void:
 	_anim_timer.timeout.connect(_on_anim_finished)
 
 func _cancel_timers() -> void:
-	if _window_timer:
+	if _window_timer and _window_timer.time_left > 0:
 		_window_timer.timeout.disconnect(_open_window)
-		_window_timer = null
-	if _anim_timer:
+	_window_timer = null
+	if _anim_timer and _anim_timer.time_left > 0:
 		_anim_timer.timeout.disconnect(_on_anim_finished)
-		_anim_timer = null
+	_anim_timer = null
 
 func _open_window() -> void:
 	if combo_queued:

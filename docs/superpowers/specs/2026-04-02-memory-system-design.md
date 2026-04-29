@@ -50,58 +50,66 @@ Mac mini (主机)                          远程电脑 (客户端)
 
 ### Memory Entry
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | TEXT (UUID) | Primary key |
-| `type` | TEXT | `task_state` \| `preference` \| `project_context` \| `decision` \| `pitfall` \| `insight` |
-| `project` | TEXT | Project identifier (e.g. "content-factory") |
-| `title` | TEXT | Short descriptive title |
-| `content` | TEXT | Full memory content |
-| `embedding` | BLOB | bge-m3 vector (1024 floats) |
-| `importance` | REAL | Dynamic priority score (0.0–1.0) |
-| `source` | TEXT | `auto` \| `explicit` |
-| `tags` | TEXT | JSON array of keyword tags |
-| `created_at` | TEXT | ISO timestamp |
-| `updated_at` | TEXT | ISO timestamp |
-| `accessed_at` | TEXT | Last retrieval time |
-| `access_count` | INTEGER | Times retrieved |
-| `status` | TEXT | `active` \| `archived` |
-| `verified` | TEXT | `verified` \| `unverified` \| `rejected` \| `conflict` — trustworthiness status |
-| `scope` | TEXT | `project` \| `global` — cross-project visibility |
-| `accessed_projects` | TEXT | JSON array of project names that have retrieved this memory |
+
+| Field               | Type        | Description                                                                          |
+| ------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| `id`                | TEXT (UUID) | Primary key                                                                          |
+| `type`              | TEXT        | `task_state` | `preference` | `project_context` | `decision` | `pitfall` | `insight` |
+| `project`           | TEXT        | Project identifier (e.g. "content-factory")                                          |
+| `title`             | TEXT        | Short descriptive title                                                              |
+| `content`           | TEXT        | Full memory content                                                                  |
+| `embedding`         | BLOB        | bge-m3 vector (1024 floats)                                                          |
+| `importance`        | REAL        | Dynamic priority score (0.0–1.0)                                                     |
+| `source`            | TEXT        | `auto` | `explicit`                                                                  |
+| `tags`              | TEXT        | JSON array of keyword tags                                                           |
+| `created_at`        | TEXT        | ISO timestamp                                                                        |
+| `updated_at`        | TEXT        | ISO timestamp                                                                        |
+| `accessed_at`       | TEXT        | Last retrieval time                                                                  |
+| `access_count`      | INTEGER     | Times retrieved                                                                      |
+| `status`            | TEXT        | `active` | `archived`                                                                |
+| `verified`          | TEXT        | `verified` | `unverified` | `rejected` | `conflict` — trustworthiness status         |
+| `scope`             | TEXT        | `project` | `global` — cross-project visibility                                      |
+| `accessed_projects` | TEXT        | JSON array of project names that have retrieved this memory                          |
+
 
 ### Session
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | TEXT (UUID) | Primary key |
-| `project` | TEXT | Project identifier |
-| `summary` | TEXT | What was done in this session |
-| `started_at` | TEXT | ISO timestamp |
-| `ended_at` | TEXT | ISO timestamp |
-| `memories_created` | TEXT | JSON array of memory IDs created |
+
+| Field              | Type        | Description                      |
+| ------------------ | ----------- | -------------------------------- |
+| `id`               | TEXT (UUID) | Primary key                      |
+| `project`          | TEXT        | Project identifier               |
+| `summary`          | TEXT        | What was done in this session    |
+| `started_at`       | TEXT        | ISO timestamp                    |
+| `ended_at`         | TEXT        | ISO timestamp                    |
+| `memories_created` | TEXT        | JSON array of memory IDs created |
+
 
 ### Performance Log
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | TEXT | ISO timestamp |
-| `operation` | TEXT | "recall" \| "store" |
-| `latency_ms` | REAL | Actual execution time |
+
+| Field          | Type    | Description                         |
+| -------------- | ------- | ----------------------------------- |
+| `timestamp`    | TEXT    | ISO timestamp                       |
+| `operation`    | TEXT    | "recall" | "store"                  |
+| `latency_ms`   | REAL    | Actual execution time               |
 | `memory_count` | INTEGER | Total memories at time of operation |
-| `result_count` | INTEGER | Results returned |
+| `result_count` | INTEGER | Results returned                    |
+
 
 ---
 
 ## Memory Types & Dynamic Importance
 
-| Type | Base Importance | Decay Rate | Lifecycle |
-|------|----------------|------------|-----------|
-| `preference` | 0.95 | 0.0 (never) | Never archive, never delete |
-| `project_context` | 0.85 | 0.01 (very slow) | Never archive within project; can be updated/replaced |
-| `task_state` (active) | 0.9 | 0.3 (fast) | Completed → importance drops to 0.2, archived after 7 days |
-| `pitfall` | 0.7 | 0.02 (slow) | Never decay; can be merged with similar entries |
-| `decision` | 0.5 | 0.05 (moderate) | Access resets decay timer; ~20 days to halve |
+
+| Type                  | Base Importance | Decay Rate       | Lifecycle                                                  |
+| --------------------- | --------------- | ---------------- | ---------------------------------------------------------- |
+| `preference`          | 0.95            | 0.0 (never)      | Never archive, never delete                                |
+| `project_context`     | 0.85            | 0.01 (very slow) | Never archive within project; can be updated/replaced      |
+| `task_state` (active) | 0.9             | 0.3 (fast)       | Completed → importance drops to 0.2, archived after 7 days |
+| `pitfall`             | 0.7             | 0.02 (slow)      | Never decay; can be merged with similar entries            |
+| `decision`            | 0.5             | 0.05 (moderate)  | Access resets decay timer; ~20 days to halve               |
+
 
 Explicit memories (`source: "explicit"`) get importance +0.1 bonus.
 
@@ -111,67 +119,77 @@ Explicit memories (`source: "explicit"`) get importance +0.1 bonus.
 
 ### Write Tools
 
-**`memory_store`**
+`**memory_store`**
+
 - Params: `content` (string), `type` (enum), `project?` (string), `title?` (string), `tags?` (string[]), `importance?` (number)
 - Behavior — ordered pipeline:
   1. **Redact**: Run sensitive data filter, strip secrets
   2. **Embed**: Generate bge-m3 embedding via Ollama
   3. **Similarity search**: Find existing memories in same project + same type with >0.85 similarity
   4. **Branch**:
-     - No match (similarity ≤0.85) → **create** new memory (`verified: "unverified"` if auto, `verified: "verified"` if explicit)
-     - Match found, content is consistent → **update** existing memory (merge content, refresh timestamps)
-     - Match found, content contradicts existing `verified` memory → **create** new memory with `verified: "conflict"`, link to conflicting memory ID in metadata; do NOT overwrite the existing one
+    - No match (similarity ≤0.85) → **create** new memory (`verified: "unverified"` if auto, `verified: "verified"` if explicit)
+    - Match found, content is consistent → **update** existing memory (merge content, refresh timestamps)
+    - Match found, content contradicts existing `verified` memory → **create** new memory with `verified: "conflict"`, link to conflicting memory ID in metadata; do NOT overwrite the existing one
   5. **task_state special**: additionally enforce single active entry per logical task per project (replace, not accumulate)
   6. **Auto-tag**: extract keywords from content
   7. **Store**: write to SQLite
 - Returns: `{ id, action: "created" | "updated" | "conflict", title }`
 
-**`memory_update`**
+`**memory_update`**
+
 - Params: `id` (string), `content?` (string), `importance?` (number), `tags?` (string[])
 - Re-generates embedding if content changed
 
-**`memory_delete`**
+`**memory_delete**`
+
 - Params: `id` (string)
 
 ### Read Tools
 
-**`memory_recall`**
+`**memory_recall**`
+
 - Params: `query` (string), `project?` (string), `type?` (enum), `limit?` (number, default 5), `min_similarity?` (number, default 0.3)
 - Behavior: query → bge-m3 embedding → cosine similarity search → filter → rank by `final_score` → update accessed_at/access_count
 - Returns: `[{ id, title, content, type, similarity, project }]`
 
-**`memory_list`**
+`**memory_list**`
+
 - Params: `project?` (string), `type?` (enum), `limit?` (number, default 20), `sort?` ("recent" | "importance" | "accessed")
 - Structured browsing without semantic search
 
 ### Session Tools
 
-**`session_start`**
+`**session_start**`
+
 - Params: `working_directory` (string), `task_hint?` (string)
 - Behavior: Infer project from directory (git repo name > dir name) → load active task_states + all preferences + project_context → if task_hint provided, semantic search for relevant pitfalls/decisions → assemble compressed context within token budget
 - Returns: `{ project, active_tasks, preferences, context, relevant, recent_unverified, conflicts, proactive_warnings, token_estimate }`
   - `recent_unverified`: up to 3 recent `unverified` memories for lightweight review
   - `conflicts`: any memories with `verified: "conflict"` awaiting user resolution
   - `proactive_warnings`: insights triggered by task_hint tag matches
-- Token budget: 2000 tokens (configurable), allocation: preference (~200) → task_state (~400) → project_context (~400) → remaining filled by semantic search results sorted by final_score
+- Token budget: 2000 tokens (configurable), allocation: preference (~~200) → task_state (~~400) → project_context (~400) → remaining filled by semantic search results sorted by final_score
 - Ranking applies `verified` weight: `verified` ×1.0, `unverified` ×0.7, `rejected` excluded before ranking, `conflict` surfaced separately (not ranked)
 
-**`session_end`**
+`**session_end**`
+
 - Params: `summary` (string), `completed_tasks?` (string[])
 - Behavior: Decay completed task_states to importance 0.2 → extract new memories from summary by keyword patterns → store session record → update snapshot
 
 ### Maintenance Tools
 
-**`memory_health`**
+`**memory_health**`
+
 - Params: none
 - Returns: `{ status, ollama, db_integrity, memories, latency_avg_ms, db_size_mb, last_backup, issues, fix_suggestions }`
 
-**`memory_diagnose`**
+`**memory_diagnose**`
+
 - Params: `issue?` (string)
 - Behavior: Deep self-check → collect recent 50 error logs → collect system environment → generate report → save to `data/diagnostics/`
 - Returns: `{ report_path, summary, suggested_fix, can_auto_fix, handoff_prompt }`
 
-**`memory_compact`**
+`**memory_compact**`
+
 - Params: `project?` (string)
 - Behavior: Merge memories with >0.9 similarity → archive importance <0.1 entries
 - Returns: `{ merged, archived }`
@@ -238,6 +256,7 @@ SearchEngine (interface)
 ```
 
 **Auto-upgrade behavior:**
+
 - Config: `search_engine: "auto" | "brute_force" | "sqlite_vec"`
 - `auto` mode: detect sqlite-vec at startup → use it if available, else brute-force
 - Performance monitoring: 10 consecutive recalls >300ms → suggest `npm install sqlite-vec` via recall response
@@ -253,21 +272,24 @@ SearchEngine (interface)
 
 Guides the Agent on WHEN to call memory tools:
 
-| Trigger | Memory Type | Action |
-|---------|-------------|--------|
-| Session start | — | Call `session_start` |
-| Task/phase completed | `task_state` | Store progress and next steps |
-| Architecture/tech decision made | `decision` | Store decision and reasoning |
-| Bug fixed / error solved | `pitfall` | Store error symptoms + solution |
-| User says "记住/remember/记得" | Per content | Store with `source: "explicit"` |
-| New user preference discovered | `preference` | Store preference |
-| First contact with a project | `project_context` | Store architecture, stack, structure |
-| Session ending / context getting long | — | Call `session_end` |
-| MCP unavailable | — | Fallback to snapshot file |
+
+| Trigger                               | Memory Type       | Action                               |
+| ------------------------------------- | ----------------- | ------------------------------------ |
+| Session start                         | —                 | Call `session_start`                 |
+| Task/phase completed                  | `task_state`      | Store progress and next steps        |
+| Architecture/tech decision made       | `decision`        | Store decision and reasoning         |
+| Bug fixed / error solved              | `pitfall`         | Store error symptoms + solution      |
+| User says "记住/remember/记得"            | Per content       | Store with `source: "explicit"`      |
+| New user preference discovered        | `preference`      | Store preference                     |
+| First contact with a project          | `project_context` | Store architecture, stack, structure |
+| Session ending / context getting long | —                 | Call `session_end`                   |
+| MCP unavailable                       | —                 | Fallback to snapshot file            |
+
 
 **Layer 2: MCP Server Internal Logic**
 
 On every `memory_store`:
+
 1. Generate embedding (Ollama bge-m3)
 2. Deduplicate: search same project + same type for >0.85 similarity → update instead of create
 3. For task_state: enforce single active entry per project per task
@@ -275,6 +297,7 @@ On every `memory_store`:
 5. Write to SQLite
 
 On `session_end`:
+
 1. Decay completed task_states to 0.2
 2. Parse summary for keyword patterns: "决定/选择/因为" → decision, "修复/解决/原因" → pitfall, "偏好/习惯" → preference, "下一步/TODO" → task_state
 3. Each candidate goes through the same deduplicate → embed → store pipeline
@@ -288,14 +311,16 @@ On `session_end`:
 Create → Active Use → Cool Down → Archive/Merge → Cleanup
 ```
 
-| Stage | Behavior |
-|-------|----------|
-| **Create** | Agent auto-extracts or user triggers → embedding → dedup → store (status: active) |
-| **Active Use** | Each recall hit → access_count +1, accessed_at refreshed → recency stays high |
-| **Cool Down** | Long unaccessed → recency_factor drops by decay_rate → excluded from session_start injection → still findable by memory_recall |
-| **Archive/Merge** | Daily compact: importance <0.1 → archived; similarity >0.9 with another → merge; completed task_state >7 days → archived |
-| **Pre-cleanup** | Archived memories approaching 90 days → trigger notification flow (see Graceful Deletion below) |
-| **Cleanup** | Only after user has downloaded/acknowledged → physical delete. **Exception:** `source: "explicit"` memories are NEVER deleted |
+
+| Stage             | Behavior                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Create**        | Agent auto-extracts or user triggers → embedding → dedup → store (status: active)                                              |
+| **Active Use**    | Each recall hit → access_count +1, accessed_at refreshed → recency stays high                                                  |
+| **Cool Down**     | Long unaccessed → recency_factor drops by decay_rate → excluded from session_start injection → still findable by memory_recall |
+| **Archive/Merge** | Daily compact: importance <0.1 → archived; similarity >0.9 with another → merge; completed task_state >7 days → archived       |
+| **Pre-cleanup**   | Archived memories approaching 90 days → trigger notification flow (see Graceful Deletion below)                                |
+| **Cleanup**       | Only after user has downloaded/acknowledged → physical delete. **Exception:** `source: "explicit"` memories are NEVER deleted  |
+
 
 ### Graceful Deletion Protocol
 
@@ -329,6 +354,7 @@ Day 96: 最终检查
 **"已下载"的判定：** 系统记录 `vega export` 命令的最后执行时间。如果在通知发出后有过 export 操作且覆盖了待清理的记忆范围，则视为已下载。
 
 **CLI 命令：**
+
 ```bash
 vega export --archived --before 90d --format json -o ~/backups/vega-archive.json
 vega cleanup --confirm    # 手动确认清理被阻塞的记忆
@@ -336,17 +362,20 @@ vega cleanup --confirm    # 手动确认清理被阻塞的记忆
 
 ### Type-Specific Rules
 
-| Type | Special Rule |
-|------|-------------|
-| `preference` | Never decay, never archive, never delete — only removed by explicit user request |
-| `task_state` | Completed → importance 0.2 → archived after 7 days (most aggressive recycling) |
-| `pitfall` | Never decay; can be merged — multiple records of same pitfall consolidate into one |
-| `project_context` | Never decay within project; can be **replaced** when architecture changes |
-| `decision` | Normal decay; single access resets decay timer |
+
+| Type              | Special Rule                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `preference`      | Never decay, never archive, never delete — only removed by explicit user request   |
+| `task_state`      | Completed → importance 0.2 → archived after 7 days (most aggressive recycling)     |
+| `pitfall`         | Never decay; can be merged — multiple records of same pitfall consolidate into one |
+| `project_context` | Never decay within project; can be **replaced** when architecture changes          |
+| `decision`        | Normal decay; single access resets decay timer                                     |
+
 
 ### Projected Data Volume
 
 At ~2-3 Cursor sessions/day:
+
 - Daily: ~5-10 new, ~1-2 merged, ~1 archived
 - 1 month: ~200 active memories
 - 6 months: ~800 active memories
@@ -359,22 +388,26 @@ At ~2-3 Cursor sessions/day:
 
 ### Three-Level Check Schedule
 
-| Level | Frequency | Checks | Trigger |
-|-------|-----------|--------|---------|
-| **Realtime** | Every tool call | Ollama connectivity, SQLite read/write, per-call latency | Internal, ~1ms overhead |
-| **Daily** | Every 24h | Backup memory.db, scan/rebuild missing embeddings, refresh snapshot, run compact, clean old backups | Internal timer + launchd fallback |
-| **Weekly** | Sundays 03:00 | PRAGMA integrity_check, performance trends, growth stats, quality metrics (% unaccessed >30d) | Same as daily |
+
+| Level        | Frequency       | Checks                                                                                              | Trigger                           |
+| ------------ | --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Realtime** | Every tool call | Ollama connectivity, SQLite read/write, per-call latency                                            | Internal, ~1ms overhead           |
+| **Daily**    | Every 24h       | Backup memory.db, scan/rebuild missing embeddings, refresh snapshot, run compact, clean old backups | Internal timer + launchd fallback |
+| **Weekly**   | Sundays 03:00   | PRAGMA integrity_check, performance trends, growth stats, quality metrics (% unaccessed >30d)       | Same as daily                     |
+
 
 ### Auto-Repair Matrix
 
-| Failure | Severity | Auto-Fix | Strategy |
-|---------|----------|----------|----------|
-| Ollama unresponsive | Medium | Yes | Retry 3× → degrade to FTS5 keyword search (indexed columns: `title`, `content`, `tags`; FTS5 virtual table created at DB init alongside main tables); new memories stored with `embedding = NULL`; background retry every 5 min; when Ollama returns, batch-rebuild all NULL embeddings |
-| Missing/corrupt embedding | Low | Yes | Detect at startup + daily check → regenerate via Ollama |
-| SQLite corruption | High | Partial | Auto-restore from most recent daily backup |
-| Memory quality degradation | Medium | Yes | `memory_compact` merges redundant, archives stale entries |
-| MCP server crash | Low | N/A | MCP is stdio — Cursor re-spawns it on next tool call; no persistent state to lose (all state in SQLite). Scheduler daemon (launchd KeepAlive) handles background tasks independently. |
-| Disk full | High | No | Alert via Telegram + alert file |
+
+| Failure                    | Severity | Auto-Fix | Strategy                                                                                                                                                                                                                                                                                |
+| -------------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ollama unresponsive        | Medium   | Yes      | Retry 3× → degrade to FTS5 keyword search (indexed columns: `title`, `content`, `tags`; FTS5 virtual table created at DB init alongside main tables); new memories stored with `embedding = NULL`; background retry every 5 min; when Ollama returns, batch-rebuild all NULL embeddings |
+| Missing/corrupt embedding  | Low      | Yes      | Detect at startup + daily check → regenerate via Ollama                                                                                                                                                                                                                                 |
+| SQLite corruption          | High     | Partial  | Auto-restore from most recent daily backup                                                                                                                                                                                                                                              |
+| Memory quality degradation | Medium   | Yes      | `memory_compact` merges redundant, archives stale entries                                                                                                                                                                                                                               |
+| MCP server crash           | Low      | N/A      | MCP is stdio — Cursor re-spawns it on next tool call; no persistent state to lose (all state in SQLite). Scheduler daemon (launchd KeepAlive) handles background tasks independently.                                                                                                   |
+| Disk full                  | High     | No       | Alert via Telegram + alert file                                                                                                                                                                                                                                                         |
+
 
 ### Automatic Backup
 
@@ -401,6 +434,7 @@ Level 3: MCP completely down    → Markdown snapshot fallback
 **During normal operation:** MCP server exports `data/snapshots/memory-snapshot.md` after every `memory_store` or `session_end`. Contains top memories by importance, capped at ~3000 tokens.
 
 **When MCP is unavailable:** Cursor Rule detects MCP tools not responding → instructs Agent to:
+
 1. Read `data/snapshots/memory-snapshot.md` for context
 2. Write new memories to `data/snapshots/pending-memories.jsonl`
 
@@ -414,19 +448,23 @@ Zero human intervention throughout the entire degrade → fallback → recover c
 
 ### Dual-Channel Alerts
 
-| Channel | Purpose | Mechanism |
-|---------|---------|-----------|
-| **Telegram Bot** | Real-time push notification | HTTP POST to Bot API (dedicated bot, token via env var) |
-| **Alert File** | In-Cursor notification | `data/alerts/active-alert.md` — Agent reads at session start |
+
+| Channel          | Purpose                     | Mechanism                                                    |
+| ---------------- | --------------------------- | ------------------------------------------------------------ |
+| **Telegram Bot** | Real-time push notification | HTTP POST to Bot API (dedicated bot, token via env var)      |
+| **Alert File**   | In-Cursor notification      | `data/alerts/active-alert.md` — Agent reads at session start |
+
 
 ### Notification Levels
 
-| Level | Telegram | Alert File | Triggers |
-|-------|----------|------------|----------|
-| 🔴 Error | Immediate | Write | DB corruption, backup failure, crash-restart |
-| 🟡 Warning | Daily digest | Write | Ollama down >1h, latency sustained >300ms, disk >80% |
-| 🟢 Info | Silent | Silent | Daily backup success, compaction complete |
-| 📊 Weekly | Summary | Silent | Weekly health report |
+
+| Level      | Telegram     | Alert File | Triggers                                             |
+| ---------- | ------------ | ---------- | ---------------------------------------------------- |
+| 🔴 Error   | Immediate    | Write      | DB corruption, backup failure, crash-restart         |
+| 🟡 Warning | Daily digest | Write      | Ollama down >1h, latency sustained >300ms, disk >80% |
+| 🟢 Info    | Silent       | Silent     | Daily backup success, compaction complete            |
+| 📊 Weekly  | Summary      | Silent     | Weekly health report                                 |
+
 
 ### Configuration
 
@@ -596,11 +634,13 @@ alwaysApply: true
 Two separate processes, sharing the same SQLite DB:
 
 **① MCP Server (stdio, Cursor-managed)**
+
 - Cursor spawns this process on demand via `mcp.json` config
 - Handles all MCP tool calls (store, recall, session_start, etc.)
 - Dies when Cursor session ends — stateless between launches (all state in SQLite)
 
 **② Scheduler Daemon (launchd, always-on)**
+
 - Lightweight background process for tasks that must run without Cursor
 - Responsibilities: daily backup, daily compact, weekly health report, weekly insight generation, Telegram alerts
 - Hosts the **HTTP API server** on port 3271 for remote client access (see Remote Access section)
@@ -629,11 +669,13 @@ Two separate processes, sharing the same SQLite DB:
 
 ## Migration Plan
 
-| Existing File | Action |
-|---------------|--------|
-| `common-fixes.md` | One-time import as `pitfall` type memories; retain as human-curated reference (read-only by MCP) |
-| `content-factory-lessons.md` | One-time import with `project: "content-factory"` |
-| `AGENTS.md` memory rules | Migrate to `.cursor/rules/memory.mdc`; keep non-memory rules in AGENTS.md |
+
+| Existing File                | Action                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| `common-fixes.md`            | One-time import as `pitfall` type memories; retain as human-curated reference (read-only by MCP) |
+| `content-factory-lessons.md` | One-time import with `project: "content-factory"`                                                |
+| `AGENTS.md` memory rules     | Migrate to `.cursor/rules/memory.mdc`; keep non-memory rules in AGENTS.md                        |
+
 
 ---
 
@@ -649,13 +691,15 @@ Two separate processes, sharing the same SQLite DB:
 
 防止被入侵后记忆泄露：
 
-| Layer | Method | Purpose |
-|-------|--------|---------|
-| **SQLite 加密** | SQLCipher (AES-256) 或 better-sqlite3 + 自定义加密层 | 整个数据库文件加密，无密钥无法读取 |
-| **密钥管理** | macOS Keychain (`security` CLI) 存储加密密钥 | 密钥不落盘为明文，不在 .env 里 |
-| **HTTP API 传输** | Tailscale 已提供 WireGuard 加密隧道 | 远程访问链路加密 |
-| **API 认证** | API key (auto-generated, hashed stored) | 远程客户端身份验证 |
-| **备份加密** | 备份文件同样是加密后的 SQLite | 备份被拷走也无法读取 |
+
+| Layer           | Method                                        | Purpose            |
+| --------------- | --------------------------------------------- | ------------------ |
+| **SQLite 加密**   | SQLCipher (AES-256) 或 better-sqlite3 + 自定义加密层 | 整个数据库文件加密，无密钥无法读取  |
+| **密钥管理**        | macOS Keychain (`security` CLI) 存储加密密钥        | 密钥不落盘为明文，不在 .env 里 |
+| **HTTP API 传输** | Tailscale 已提供 WireGuard 加密隧道                  | 远程访问链路加密           |
+| **API 认证**      | API key (auto-generated, hashed stored)       | 远程客户端身份验证          |
+| **备份加密**        | 备份文件同样是加密后的 SQLite                            | 备份被拷走也无法读取         |
+
 
 **入侵场景防护：**
 
@@ -753,11 +797,13 @@ Alternative: `curl -fsSL http://<tailscale-ip>:3271/setup | bash`
 
 Every memory has a `verified` field:
 
-| Status | Meaning | Retrieval Weight | How It Gets Set |
-|--------|---------|-----------------|-----------------|
-| `verified` | Confirmed accurate | Normal (×1.0) | User explicitly stored, or user confirmed during review |
-| `unverified` | Auto-extracted, not yet confirmed | Reduced (×0.7) | Default for all auto-extracted memories |
-| `rejected` | User marked as incorrect | Excluded from search | User says "this is wrong" |
+
+| Status       | Meaning                           | Retrieval Weight     | How It Gets Set                                         |
+| ------------ | --------------------------------- | -------------------- | ------------------------------------------------------- |
+| `verified`   | Confirmed accurate                | Normal (×1.0)        | User explicitly stored, or user confirmed during review |
+| `unverified` | Auto-extracted, not yet confirmed | Reduced (×0.7)       | Default for all auto-extracted memories                 |
+| `rejected`   | User marked as incorrect          | Excluded from search | User says "this is wrong"                               |
+
 
 ### Lightweight Review Mechanism
 
@@ -771,6 +817,7 @@ recent_unverified: [
 ```
 
 Cursor Rule instructs Agent to briefly mention these:
+
 > "上次我自动记了：① Phase 3 选用 ASS 字幕格式 ② 不喜欢过多注释。有错的告诉我。"
 
 - User says "没问题" → batch update to `verified`
@@ -780,6 +827,7 @@ Cursor Rule instructs Agent to briefly mention these:
 ### Contradiction Detection
 
 When `memory_store` finds an existing memory with >0.85 similarity but significantly different content:
+
 - Do NOT silently overwrite
 - Mark the new memory as `conflict` status
 - Surface both versions during next `session_start` for user resolution
@@ -795,25 +843,29 @@ Beyond storing memories, the system identifies patterns and generates proactive 
 
 A special memory type `insight` (auto-generated, never manually created):
 
-| Field | Example |
-|-------|---------|
-| type | `insight` |
-| content | "FFmpeg 相关任务：8 条踩坑记录中 5 条与文件路径相关（62%）。建议开始 FFmpeg 任务时优先确认路径配置。" |
-| tags | `["ffmpeg", "pattern"]` |
-| source | `auto` |
-| importance | 0.75 |
+
+| Field      | Example                                                         |
+| ---------- | --------------------------------------------------------------- |
+| type       | `insight`                                                       |
+| content    | "FFmpeg 相关任务：8 条踩坑记录中 5 条与文件路径相关（62%）。建议开始 FFmpeg 任务时优先确认路径配置。" |
+| tags       | `["ffmpeg", "pattern"]`                                         |
+| source     | `auto`                                                          |
+| importance | 0.75                                                            |
+
 
 ### Pattern Detection (Rule-Based, No LLM Needed)
 
 Run during weekly health check:
 
-| Pattern | Detection Method | Insight Example |
-|---------|-----------------|-----------------|
-| **Tag clustering** | Count pitfalls by tag | "FFmpeg: 8 pitfalls, 5 about paths (62%)" |
-| **Repeat offenders** | Same tag appears in pitfalls across sessions | "中文渲染 issues recur every ~2 weeks" |
-| **Project risk areas** | Pitfall density by project module | "content-factory/pipeline/ has 3× more pitfalls than other dirs" |
-| **Decision patterns** | Cluster decisions by topic | "你在数据库选型时 3/4 次选了 SQLite" |
-| **Preference stability** | Detect preference changes over time | "你的注释风格偏好在上月改变过一次" |
+
+| Pattern                  | Detection Method                             | Insight Example                                                  |
+| ------------------------ | -------------------------------------------- | ---------------------------------------------------------------- |
+| **Tag clustering**       | Count pitfalls by tag                        | "FFmpeg: 8 pitfalls, 5 about paths (62%)"                        |
+| **Repeat offenders**     | Same tag appears in pitfalls across sessions | "中文渲染 issues recur every ~2 weeks"                               |
+| **Project risk areas**   | Pitfall density by project module            | "content-factory/pipeline/ has 3× more pitfalls than other dirs" |
+| **Decision patterns**    | Cluster decisions by topic                   | "你在数据库选型时 3/4 次选了 SQLite"                                        |
+| **Preference stability** | Detect preference changes over time          | "你的注释风格偏好在上月改变过一次"                                               |
+
 
 ### Proactive Warning
 
@@ -834,17 +886,19 @@ session_start(task_hint: "修复 FFmpeg 视频合成")
 
 The following content types must NOT be stored as memories:
 
-| Category | Examples | Detection |
-|----------|----------|-----------|
-| **Emotional/complaints** | "这个 API 真垃圾"、"又出 bug 了烦死了" | Sentiment keywords without actionable content |
-| **Failed debug attempts** | "试了换端口 3001 没用" | Unless the failure itself is the lesson |
-| **One-time queries** | "这个报错什么意思"、"解释下这段代码" | Question without lasting conclusion |
-| **Pasted raw data** | 200 lines of logs, someone else's code | Large paste blocks without distilled conclusion |
-| **Common knowledge** | "Python for 循环怎么写" | Already in documentation / basic knowledge |
-| **One-time commands** | "跑 npm install"、"重启服务器" | Imperative commands without reusable context |
-| **Inconclusive exploration** | Browsed files but made no decision | No resulting action or conclusion |
-| **Meta-discussion** | Talking about the memory system itself | Self-referential, not project knowledge |
-| **Non-coding tasks** | "帮我写封邮件"、"查天气" | Unrelated to development work |
+
+| Category                     | Examples                               | Detection                                       |
+| ---------------------------- | -------------------------------------- | ----------------------------------------------- |
+| **Emotional/complaints**     | "这个 API 真垃圾"、"又出 bug 了烦死了"             | Sentiment keywords without actionable content   |
+| **Failed debug attempts**    | "试了换端口 3001 没用"                        | Unless the failure itself is the lesson         |
+| **One-time queries**         | "这个报错什么意思"、"解释下这段代码"                   | Question without lasting conclusion             |
+| **Pasted raw data**          | 200 lines of logs, someone else's code | Large paste blocks without distilled conclusion |
+| **Common knowledge**         | "Python for 循环怎么写"                     | Already in documentation / basic knowledge      |
+| **One-time commands**        | "跑 npm install"、"重启服务器"                | Imperative commands without reusable context    |
+| **Inconclusive exploration** | Browsed files but made no decision     | No resulting action or conclusion               |
+| **Meta-discussion**          | Talking about the memory system itself | Self-referential, not project knowledge         |
+| **Non-coding tasks**         | "帮我写封邮件"、"查天气"                         | Unrelated to development work                   |
+
 
 ### Implementation
 
@@ -860,19 +914,23 @@ The MCP server does NOT enforce exclusion — the Agent is responsible for filte
 
 Each memory has a `scope` field:
 
-| Scope | Meaning | Retrieval Behavior |
-|-------|---------|-------------------|
+
+| Scope     | Meaning                 | Retrieval Behavior                               |
+| --------- | ----------------------- | ------------------------------------------------ |
 | `project` | Relevant to one project | Only returned when searching within that project |
-| `global` | Universally applicable | Returned for ALL projects |
+| `global`  | Universally applicable  | Returned for ALL projects                        |
+
 
 ### Auto-Promotion Rules
 
-| Rule | Behavior |
-|------|----------|
-| `preference` type | Always `scope: "global"` at creation |
-| `project_context` type | Always `scope: "project"` (by definition) |
-| Other types | Start as `scope: "project"` |
-| Accessed by ≥2 different projects | Auto-promote to `scope: "global"` |
+
+| Rule                              | Behavior                                  |
+| --------------------------------- | ----------------------------------------- |
+| `preference` type                 | Always `scope: "global"` at creation      |
+| `project_context` type            | Always `scope: "project"` (by definition) |
+| Other types                       | Start as `scope: "project"`               |
+| Accessed by ≥2 different projects | Auto-promote to `scope: "global"`         |
+
 
 ### Tracking
 
@@ -910,14 +968,16 @@ Vega 不绑定 Cursor — 通过三层接口服务任何 AI 工具：
 
 ### 各平台接入方式
 
-| Platform | Interface | How to Connect |
-|----------|-----------|---------------|
-| **Cursor** | MCP (stdio) | `mcp.json` 注册，Agent 直接调用工具 |
-| **Claude Code** | CLI | 在 CLAUDE.md 里写规则：`遇到问题先跑 vega recall "..." --json` |
-| **Codex CLI** | CLI | 在 AGENTS.md 里写规则，通过 shell 调用 `vega` 命令 |
-| **OpenClaw** | HTTP API / Plugin SDK | lossless-claw 可配置外部记忆源，或开发 Vega 适配插件 |
-| **其他 MCP 客户端** | MCP (stdio) | 任何支持 MCP 的工具都能直接接入 |
-| **自动化脚本** | CLI / HTTP API | `vega recall --json` 或 `curl http://localhost:3271/api/recall` |
+
+| Platform        | Interface             | How to Connect                                                 |
+| --------------- | --------------------- | -------------------------------------------------------------- |
+| **Cursor**      | MCP (stdio)           | `mcp.json` 注册，Agent 直接调用工具                                     |
+| **Claude Code** | CLI                   | 在 CLAUDE.md 里写规则：`遇到问题先跑 vega recall "..." --json`             |
+| **Codex CLI**   | CLI                   | 在 AGENTS.md 里写规则，通过 shell 调用 `vega` 命令                         |
+| **OpenClaw**    | HTTP API / Plugin SDK | lossless-claw 可配置外部记忆源，或开发 Vega 适配插件                           |
+| **其他 MCP 客户端**  | MCP (stdio)           | 任何支持 MCP 的工具都能直接接入                                             |
+| **自动化脚本**       | CLI / HTTP API        | `vega recall --json` 或 `curl http://localhost:3271/api/recall` |
+
 
 ### OpenClaw 集成路径
 
@@ -933,23 +993,27 @@ Vega 不绑定 Cursor — 通过三层接口服务任何 AI 工具：
 
 ### 压力测试
 
-| Test | Method | Target |
-|------|--------|--------|
-| **写入吞吐** | 批量 store 1000 条记忆，测量总耗时 | < 30s（含 embedding 生成） |
-| **检索延迟** | 在 1000/5000/10000 条记忆下 recall | < 50ms / < 100ms / < 200ms |
-| **并发写入** | MCP + CLI + HTTP API 同时写入 | SQLite WAL 无死锁，数据一致 |
-| **Ollama 压力** | 连续 100 次 embedding 请求 | bge-m3 无 OOM，延迟稳定 |
-| **远程同步** | 客户端离线产生 50 条记忆后重连同步 | < 10s 全部同步完成，无重复 |
+
+| Test          | Method                        | Target                     |
+| ------------- | ----------------------------- | -------------------------- |
+| **写入吞吐**      | 批量 store 1000 条记忆，测量总耗时       | < 30s（含 embedding 生成）      |
+| **检索延迟**      | 在 1000/5000/10000 条记忆下 recall | < 50ms / < 100ms / < 200ms |
+| **并发写入**      | MCP + CLI + HTTP API 同时写入     | SQLite WAL 无死锁，数据一致        |
+| **Ollama 压力** | 连续 100 次 embedding 请求         | bge-m3 无 OOM，延迟稳定          |
+| **远程同步**      | 客户端离线产生 50 条记忆后重连同步           | < 10s 全部同步完成，无重复           |
+
 
 ### 基准测试
 
-| Metric | How to Measure | Baseline |
-|--------|---------------|----------|
+
+| Metric       | How to Measure                              | Baseline          |
+| ------------ | ------------------------------------------- | ----------------- |
 | **Token 节省** | 对比 session_start 注入 vs 加载整个 common-fixes.md | 目标：节省 50%+ tokens |
-| **记忆精度** | 手动评估 top-5 recall 结果的相关性 (1-5 分) | 目标：平均 ≥ 4.0 |
-| **查重准确率** | 故意存入重复内容，检查是否正确合并 | 目标：95%+ 正确合并 |
-| **遗漏率** | 故意排除不该记的内容，检查是否正确过滤 | 目标：90%+ 正确排除 |
-| **DB 大小效率** | 每条记忆的平均存储开销 | 目标：< 10KB/条 |
+| **记忆精度**     | 手动评估 top-5 recall 结果的相关性 (1-5 分)            | 目标：平均 ≥ 4.0       |
+| **查重准确率**    | 故意存入重复内容，检查是否正确合并                           | 目标：95%+ 正确合并      |
+| **遗漏率**      | 故意排除不该记的内容，检查是否正确过滤                         | 目标：90%+ 正确排除      |
+| **DB 大小效率**  | 每条记忆的平均存储开销                                 | 目标：< 10KB/条       |
+
 
 ### 测试命令
 
@@ -966,23 +1030,27 @@ vega benchmark --report           # 生成测试报告
 
 调研了现有记忆系统的成功案例，以下是对 Vega 设计有借鉴价值的部分：
 
-| System | Key Idea Worth Borrowing | How Vega Applies It |
-|--------|-------------------------|-------------------|
-| **OpenClaw lossless-claw** | SQLite 作为无损原始存储 + 摘要层 + search/expand 工具按需钻取 | Vega 的 SQLite + embedding + recall 设计直接继承此思路 |
-| **LangMem** | 热路径工具（低延迟 store/search）+ 后台整合任务 分离 | Vega 的 MCP 即时工具 + Scheduler 后台 compact/insight 完全对应 |
-| **mem0** | 多维度 scope（user / session / agent）+ 只注入 top-k 控制噪音 | Vega 的 project + scope(project/global) + token budget 机制 |
-| **Letta (MemGPT)** | 显式命名记忆块（human/persona）作为一等公民 | Vega 的 5+1 种记忆类型（task_state 到 insight）是类似思路 |
-| **Zep** | 时序感知 + 关系图谱 | Vega 暂不做图谱，但 accessed_at/created_at 时序权重 + 跨项目自动提升是轻量版时序感知 |
+
+| System                     | Key Idea Worth Borrowing                          | How Vega Applies It                                        |
+| -------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
+| **OpenClaw lossless-claw** | SQLite 作为无损原始存储 + 摘要层 + search/expand 工具按需钻取      | Vega 的 SQLite + embedding + recall 设计直接继承此思路               |
+| **LangMem**                | 热路径工具（低延迟 store/search）+ 后台整合任务 分离                | Vega 的 MCP 即时工具 + Scheduler 后台 compact/insight 完全对应        |
+| **mem0**                   | 多维度 scope（user / session / agent）+ 只注入 top-k 控制噪音 | Vega 的 project + scope(project/global) + token budget 机制   |
+| **Letta (MemGPT)**         | 显式命名记忆块（human/persona）作为一等公民                      | Vega 的 5+1 种记忆类型（task_state 到 insight）是类似思路                |
+| **Zep**                    | 时序感知 + 关系图谱                                       | Vega 暂不做图谱，但 accessed_at/created_at 时序权重 + 跨项目自动提升是轻量版时序感知 |
+
 
 ### 与 Vega 的差异化
 
-| 维度 | 其他系统 | Vega |
-|------|---------|------|
-| 部署 | 多数需要云服务或 Postgres | 纯本地 SQLite + Ollama，零外部依赖 |
+
+| 维度     | 其他系统                  | Vega                           |
+| ------ | --------------------- | ------------------------------ |
+| 部署     | 多数需要云服务或 Postgres     | 纯本地 SQLite + Ollama，零外部依赖      |
 | LLM 依赖 | mem0/Letta 核心流程依赖 LLM | 仅 embedding（本地），智能决策交给宿主 Agent |
-| 平台 | 各自绑定特定框架 | 三接口（MCP/CLI/HTTP）服务任何 AI 工具 |
-| 安全 | 多数不加密 | SQLCipher 加密 + Keychain 密钥管理 |
-| 记忆保护 | 静默删除或手动管理 | 删除前强制通知 + 下载确认 + 缓冲期 |
+| 平台     | 各自绑定特定框架              | 三接口（MCP/CLI/HTTP）服务任何 AI 工具    |
+| 安全     | 多数不加密                 | SQLCipher 加密 + Keychain 密钥管理   |
+| 记忆保护   | 静默删除或手动管理             | 删除前强制通知 + 下载确认 + 缓冲期           |
+
 
 ---
 
@@ -990,30 +1058,33 @@ vega benchmark --report           # 生成测试报告
 
 ### Phase 1 — Core (本机 Cursor + Claude Code + Codex 跑通)
 
-| Module | Content |
-|--------|---------|
-| Storage engine | SQLite + WAL + SQLCipher encryption + FTS5 |
-| Vector layer | Ollama bge-m3 embedding + brute-force search |
-| Hybrid search | Vector 70% + BM25 30% + RRF fusion |
-| Data model | 6 memory types + verified status + scope + version history |
-| MCP Server | stdio, all tools (store/recall/list/update/delete/session_start/session_end/health) |
-| CLI | `vega` command, all subcommands |
-| Tiered loading | L0 title / L1 summary / L2 full content; session_start injects L0+L1 only |
-| Auto-extraction | Agent auto-write + exclusion rules + sensitive data filter |
-| Dedup + conflict | >0.85 merge / contradiction detection / conflict status |
-| Trust system | verified / unverified / rejected + lightweight review |
-| Versioning | memory_versions table, old version saved on each update |
-| Lifecycle | Create → active → cool down → archive + graceful deletion protocol |
-| Cross-project scope | project / global + auto-promotion |
-| Security | SQLCipher + macOS Keychain + audit log |
-| Backup | Daily auto-backup + restore |
-| Fallback | Markdown snapshot + pending queue + recovery import |
-| Tool observation | Cursor Rule guides Agent to capture key tool outputs |
-| Platform rules | `.cursor/rules/memory.mdc` + `CLAUDE.md` rules + `AGENTS.md` rules |
-| Data migration | Import common-fixes.md + content-factory-lessons.md |
-| Health check | Realtime latency monitoring + memory_health tool |
+
+| Module              | Content                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| Storage engine      | SQLite + WAL + SQLCipher encryption + FTS5                                          |
+| Vector layer        | Ollama bge-m3 embedding + brute-force search                                        |
+| Hybrid search       | Vector 70% + BM25 30% + RRF fusion                                                  |
+| Data model          | 6 memory types + verified status + scope + version history                          |
+| MCP Server          | stdio, all tools (store/recall/list/update/delete/session_start/session_end/health) |
+| CLI                 | `vega` command, all subcommands                                                     |
+| Tiered loading      | L0 title / L1 summary / L2 full content; session_start injects L0+L1 only           |
+| Auto-extraction     | Agent auto-write + exclusion rules + sensitive data filter                          |
+| Dedup + conflict    | >0.85 merge / contradiction detection / conflict status                             |
+| Trust system        | verified / unverified / rejected + lightweight review                               |
+| Versioning          | memory_versions table, old version saved on each update                             |
+| Lifecycle           | Create → active → cool down → archive + graceful deletion protocol                  |
+| Cross-project scope | project / global + auto-promotion                                                   |
+| Security            | SQLCipher + macOS Keychain + audit log                                              |
+| Backup              | Daily auto-backup + restore                                                         |
+| Fallback            | Markdown snapshot + pending queue + recovery import                                 |
+| Tool observation    | Cursor Rule guides Agent to capture key tool outputs                                |
+| Platform rules      | `.cursor/rules/memory.mdc` + `CLAUDE.md` rules + `AGENTS.md` rules                  |
+| Data migration      | Import common-fixes.md + content-factory-lessons.md                                 |
+| Health check        | Realtime latency monitoring + memory_health tool                                    |
+
 
 **Phase 1 acceptance criteria:**
+
 - Mac mini Cursor new session → Agent automatically knows last session state
 - Claude Code via `vega recall --json` retrieves memories
 - Codex CLI via `vega` commands reads/writes memories
@@ -1022,22 +1093,25 @@ vega benchmark --report           # 生成测试报告
 
 ### Phase 2 — Remote + Intelligence + Enhancement
 
-| Module | Content |
-|--------|---------|
-| HTTP API | Express/Fastify, runs inside scheduler daemon, API key auth |
-| Remote sync | Client local cache + online forwarding + offline pending + recovery sync |
-| One-command setup | `vega setup --server <ip>` |
-| Insights layer | Rule-based pattern detection + insight type + proactive warnings |
-| Telegram notifications | Error immediate / warning daily / weekly report |
-| Weekly reports | Health, performance trends, memory quality analysis |
-| Diagnostics export | memory_diagnose + handoff_prompt |
-| Stress testing | `vega benchmark` command, full suite |
-| Cloud backup | Optional export to iCloud / S3 |
-| CRDT merging | Multi-agent conflict-free concurrent writes |
-| OpenClaw integration | Vega adapter plugin / bidirectional sync |
-| sqlite-vec upgrade | Auto-detect + switch when performance threshold hit |
+
+| Module                 | Content                                                                  |
+| ---------------------- | ------------------------------------------------------------------------ |
+| HTTP API               | Express/Fastify, runs inside scheduler daemon, API key auth              |
+| Remote sync            | Client local cache + online forwarding + offline pending + recovery sync |
+| One-command setup      | `vega setup --server <ip>`                                               |
+| Insights layer         | Rule-based pattern detection + insight type + proactive warnings         |
+| Telegram notifications | Error immediate / warning daily / weekly report                          |
+| Weekly reports         | Health, performance trends, memory quality analysis                      |
+| Diagnostics export     | memory_diagnose + handoff_prompt                                         |
+| Stress testing         | `vega benchmark` command, full suite                                     |
+| Cloud backup           | Optional export to iCloud / S3                                           |
+| CRDT merging           | Multi-agent conflict-free concurrent writes                              |
+| OpenClaw integration   | Vega adapter plugin / bidirectional sync                                 |
+| sqlite-vec upgrade     | Auto-detect + switch when performance threshold hit                      |
+
 
 **Phase 2 acceptance criteria:**
+
 - Remote laptop accesses Mac mini memories via Tailscale, offline mode works
 - System proactively warns "FFmpeg tasks: watch out for path issues"
 - Telegram receives alerts and weekly reports
@@ -1063,6 +1137,7 @@ docs/superpowers/plans/tasks/
 ```
 
 Each task file contains:
+
 - Goal (1 sentence)
 - Files to create/modify (exact paths)
 - Step-by-step instructions with code
@@ -1104,15 +1179,17 @@ Cursor: Review 代码是否符合 spec
 
 ### Schema
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER | Auto-increment primary key |
-| `timestamp` | TEXT | ISO timestamp |
-| `actor` | TEXT | `mcp:cursor` \| `cli` \| `api:<device-name>` |
-| `action` | TEXT | `store` \| `recall` \| `update` \| `delete` \| `export` \| `session_start` \| `session_end` |
-| `memory_id` | TEXT | Target memory ID (if applicable) |
-| `detail` | TEXT | Brief description (query content, operation params) |
-| `ip` | TEXT | Source IP (for HTTP API access) |
+
+| Field       | Type    | Description                                                                           |
+| ----------- | ------- | ------------------------------------------------------------------------------------- |
+| `id`        | INTEGER | Auto-increment primary key                                                            |
+| `timestamp` | TEXT    | ISO timestamp                                                                         |
+| `actor`     | TEXT    | `mcp:cursor` | `cli` | `api:<device-name>`                                            |
+| `action`    | TEXT    | `store` | `recall` | `update` | `delete` | `export` | `session_start` | `session_end` |
+| `memory_id` | TEXT    | Target memory ID (if applicable)                                                      |
+| `detail`    | TEXT    | Brief description (query content, operation params)                                   |
+| `ip`        | TEXT    | Source IP (for HTTP API access)                                                       |
+
 
 ### CLI Access
 
@@ -1130,11 +1207,13 @@ vega audit --memory <id>            # All operations on a specific memory
 
 ### Export Formats
 
-| Format | Command | Use Case |
-|--------|---------|----------|
-| JSON | `vega export --format json -o backup.json` | Machine-readable, full metadata |
-| Markdown | `vega export --format md -o backup.md` | Human-readable |
-| Encrypted JSON | `vega export --format json --encrypt -o backup.enc.json` | Secure transfer |
+
+| Format         | Command                                                  | Use Case                        |
+| -------------- | -------------------------------------------------------- | ------------------------------- |
+| JSON           | `vega export --format json -o backup.json`               | Machine-readable, full metadata |
+| Markdown       | `vega export --format md -o backup.md`                   | Human-readable                  |
+| Encrypted JSON | `vega export --format json --encrypt -o backup.enc.json` | Secure transfer                 |
+
 
 ### Export Targets
 
@@ -1161,24 +1240,27 @@ Cloud backup is **disabled by default**, configurable when needed.
 
 ## Design Decisions Log
 
-| Decision | Choice | Reasoning |
-|----------|--------|-----------|
-| Project name | vega-memory / `vega` CLI | Named after user's first OpenClaw agent |
-| Language | TypeScript | MCP SDK reference implementation; best Cursor ecosystem alignment |
-| Storage | SQLite | Single-user local system; zero ops overhead |
-| Embedding | Ollama bge-m3 (local) | Already running via launchd; best multilingual model; zero API cost |
-| Search | Brute-force → sqlite-vec | <10K memories = <50ms; auto-upgrade path when needed |
-| LLM intelligence | Cursor Agent itself | Agent decides what to store/search; no additional LLM cost |
-| Write mode | Fully automatic + explicit trigger | User shouldn't manage memory; "记住" overrides auto |
-| Fallback | Markdown snapshot | Natural degradation to existing file-based approach |
-| Notifications | Telegram Bot + alert file | Real-time push + in-Cursor awareness |
-| CLI | Shared core with MCP | Any terminal Agent can access memories via shell |
-| Remote access | HTTP API + Tailscale + local cache | Mac mini as primary, remote machines as syncing clients |
-| Memory trust | verified/unverified/rejected | Auto-extracted memories are degraded until confirmed |
-| Cross-project | Auto-promote scope when accessed by ≥2 projects | No manual classification needed |
-| Self-evolution | Rule-based pattern detection → insight type | Weekly analysis, no extra LLM cost |
-| Security | Redact sensitive values, read-only agent access | Prevent API keys/tokens from leaking into memory store |
-| Encryption | SQLCipher + macOS Keychain | DB file encrypted at rest; key not stored in plaintext |
-| Graceful deletion | Notify → download → confirm → delete | Memories never silently lost; user always has backup chance |
-| Multi-platform | MCP + CLI + HTTP API + Plugin SDK (future) | Not locked to Cursor; any AI tool can connect |
-| Benchmarking | Built-in `vega benchmark` command | Measurable quality and performance from day one |
+
+| Decision          | Choice                                          | Reasoning                                                           |
+| ----------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| Project name      | vega-memory / `vega` CLI                        | Named after user's first OpenClaw agent                             |
+| Language          | TypeScript                                      | MCP SDK reference implementation; best Cursor ecosystem alignment   |
+| Storage           | SQLite                                          | Single-user local system; zero ops overhead                         |
+| Embedding         | Ollama bge-m3 (local)                           | Already running via launchd; best multilingual model; zero API cost |
+| Search            | Brute-force → sqlite-vec                        | <10K memories = <50ms; auto-upgrade path when needed                |
+| LLM intelligence  | Cursor Agent itself                             | Agent decides what to store/search; no additional LLM cost          |
+| Write mode        | Fully automatic + explicit trigger              | User shouldn't manage memory; "记住" overrides auto                   |
+| Fallback          | Markdown snapshot                               | Natural degradation to existing file-based approach                 |
+| Notifications     | Telegram Bot + alert file                       | Real-time push + in-Cursor awareness                                |
+| CLI               | Shared core with MCP                            | Any terminal Agent can access memories via shell                    |
+| Remote access     | HTTP API + Tailscale + local cache              | Mac mini as primary, remote machines as syncing clients             |
+| Memory trust      | verified/unverified/rejected                    | Auto-extracted memories are degraded until confirmed                |
+| Cross-project     | Auto-promote scope when accessed by ≥2 projects | No manual classification needed                                     |
+| Self-evolution    | Rule-based pattern detection → insight type     | Weekly analysis, no extra LLM cost                                  |
+| Security          | Redact sensitive values, read-only agent access | Prevent API keys/tokens from leaking into memory store              |
+| Encryption        | SQLCipher + macOS Keychain                      | DB file encrypted at rest; key not stored in plaintext              |
+| Graceful deletion | Notify → download → confirm → delete            | Memories never silently lost; user always has backup chance         |
+| Multi-platform    | MCP + CLI + HTTP API + Plugin SDK (future)      | Not locked to Cursor; any AI tool can connect                       |
+| Benchmarking      | Built-in `vega benchmark` command               | Measurable quality and performance from day one                     |
+
+

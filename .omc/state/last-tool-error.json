@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git show b9ca0ea --stat && echo \\\"---DIFF---\\\" && git show b9ca0ea --no-stat\",\"description\":\"Show the diff for the bugfix commit\"}",
+  "error": "Exit code 128\ncommit b9ca0ea905578b85be3b9443675008c441688312\nAuthor: JohnMacmini <johnmacmini@JohnMacminideMac-mini.local>\nDate:   Wed Apr 29 12:31:59 2026 +0800\n\n    fix: pojun multi-hit, knockback direction, and stun timer leak\n\n wuxia-action-game/src/combat/player_controller.gd | 10 +++++++---\n wuxia-action-game/src/enemies/base_enemy.gd       | 13 ++++++++++---\n 2 files changed, 17 insertions(+), 6 deletions(-)\n---DIFF---\nfatal: unrecognized argument: --no-stat",
+  "timestamp": "2026-04-29T04:36:37.808Z",
+  "retry_count": 1
+}
