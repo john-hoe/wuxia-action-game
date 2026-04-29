@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://main00100000000000001"]
+[gd_scene load_steps=5 format=3 uid="uid://main00100000000000001"]
 
 [ext_resource type="Script" path="res://src/combat/player_controller.gd" id="1"]
 [ext_resource type="Script" path="res://src/combat/combo_engine.gd" id="2"]
+[ext_resource type="Script" path="res://src/combat/skill_system.gd" id="3"]
+[ext_resource type="Script" path="res://src/enemies/base_enemy.gd" id="4"]
 
 [node name="Game" type="Node2D"]
 
@@ -53,5 +55,25 @@ position_smoothing_speed = 5.0
 [node name="ComboEngine" type="Node" parent="Player"]
 script = ExtResource("2")
 
+[node name="SkillSystem" type="Node" parent="Player"]
+script = ExtResource("3")
+
+[node name="EnemyTest" type="CharacterBody2D" parent="."]
+position = Vector2(400, 540)
+script = ExtResource("4")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="EnemyTest"]
+shape = SubResource("RectangleShape2D_48x48")
+
+[node name="Sprite" type="ColorRect" parent="EnemyTest"]
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
+color = Color(0.9, 0.2, 0.2, 1)
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_48x96"]
 size = Vector2(48, 96)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_48x48"]
+size = Vector2(48, 48)
