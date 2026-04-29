@@ -1,0 +1,170 @@
+{
+  "project": "wuxia-action-game",
+  "version": "1.0.0",
+  "generated": "2026-04-29",
+  "convention": "Task IDs are stable. Do not renumber. Status: pending | in_progress | completed | blocked.",
+  "phases": [
+    {
+      "id": "P1",
+      "name": "核心战斗原型",
+      "goal": "灰盒验证战斗手感：浏览器里能打出各种连招组合",
+      "weeks": "2-3",
+      "status": "pending",
+      "tasks": [
+        {"id": "P1.01", "name": "Godot 4 项目初始化", "desc": "创建 Godot 4.4 项目，配置 Web export preset，确认 wasm 在浏览器可运行", "status": "pending", "evidence": "浏览器打开 Godot 默认场景"},
+        {"id": "P1.02", "name": "横版 2.5D 基础场景搭建", "desc": "创建灰盒场景：地面、纵深 3 层、相机设置为正交侧视角 + 轻微俯角", "status": "pending", "evidence": "灰色角色可在场景中四向移动"},
+        {"id": "P1.03", "name": "玩家移动 + 纵深切换", "desc": "WASD 移动，上下键切换纵深层级（前景/中景/远景），每层缩放和阴影不同", "status": "pending", "evidence": "角色在 3 层间移动，有透视缩放"},
+        {"id": "P1.04", "name": "普攻 4 段连击实现", "desc": "J 键触发 4 段连击 AnimationTree，段间有可取消窗口（收招前 8 帧），超时后回到待机", "status": "pending", "evidence": "连按 J = 4 段不同动作；停按 = 收招回待机"},
+        {"id": "P1.05", "name": "技能一：破军实现", "desc": "K 键突进技，有位移 + 命中判定 + 硬直效果，3s CD，灰盒用矩形碰撞", "status": "pending", "evidence": "按 K → 角色前冲 → 碰到敌人 → 敌人硬直"},
+        {"id": "P1.06", "name": "技能二：回锋实现", "desc": "L 键 360° 圆形判定，带轻微吸附，5s CD", "status": "pending", "evidence": "按 L → 周围敌人被拉近 + 受伤 + 小击退"},
+        {"id": "P1.07", "name": "技能三：凝神实现", "desc": "I 键进入 0.8s 防御姿态，被击中触发反击动画 + 3s 破绽 buff，6s CD", "status": "pending", "evidence": "防御中挨打 → 自动反击 → 伤害数字变色表示 buff"},
+        {"id": "P1.08", "name": "闪避实现", "desc": "Space 短无敌帧 + 位移，有 1s CD 和结束硬直", "status": "pending", "evidence": "敌人攻击即将命中时闪避 → 无伤害 → 有短暂后摇"},
+        {"id": "P1.09", "name": "连招段间派生判定引擎", "desc": "每个普攻段收招前 8 帧内检测技能输入 → 执行派生表查表 → 播放对应派生动画。窗口外输入 → 普通技能", "status": "pending", "evidence": "普攻第 2 段收招前按 K → 浮空派生；收招后按 K → 普通破军"},
+        {"id": "P1.10", "name": "派生表数据结构 + 配置", "desc": "设计派生关系配置表（Dictionary 或 Resource），定义 12 种派生（4 段 × 3 技能）的动画、伤害倍率、效果", "status": "pending", "evidence": "加新派生只需改配置表，不碰引擎代码"},
+        {"id": "P1.11", "name": "连击 12 段上限 + 强制收招", "desc": "计数器追踪连击数，达 12 段后下次普攻不可接技能，强制播放收招动画", "status": "pending", "evidence": "连击计数器显示 12 后无法继续连"},
+        {"id": "P1.12", "name": "空中连击状态机", "desc": "破军第 2 段派生浮空 → 进入空中状态 → 允许额外 2 段空中普攻 → 落地重置", "status": "pending", "evidence": "浮空 → 空中打两下 → 落地，连击计数器递增"},
+        {"id": "P1.13", "name": "敌人类型一：杂兵", "desc": "基础移动 AI（走向玩家）+ 2 种攻击（近距离拳/脚），有受击硬直动画和血量", "status": "pending", "evidence": "灰盒杂兵会追踪玩家并尝试攻击"},
+        {"id": "P1.14", "name": "敌人受击反馈系统", "desc": "杂兵被不同招式击中播放不同受伤动画：普攻=小硬直、破军=大后退、回锋=击飞、凝神反击=倒地", "status": "pending", "evidence": "同一敌人被不同技能打中有不同反应"},
+        {"id": "P1.15", "name": "顿帧效果", "desc": "命中瞬间暂停场景 2-3 帧（Engine.time_scale 或手动暂停），仅暂停敌我动画不暂停输入缓冲", "status": "pending", "evidence": "普攻命中瞬间画面停顿约 40ms 然后继续"},
+        {"id": "P1.16", "name": "屏幕震动", "desc": "回锋暴击和完美凝神触发时，Camera2D offset 随机偏移 2-4px，持续 0.1s 衰减", "status": "pending", "evidence": "暴击时屏幕微微抖动"},
+        {"id": "P1.17", "name": "击退物理", "desc": "命中时施加 impulse 力给敌人，力度随连击数递增（第 1 段 = 50，第 12 段 = 300）", "status": "pending", "evidence": "连击越高敌人飞得越远"},
+        {"id": "P1.18", "name": "输入缓冲系统", "desc": "玩家输入缓存最近 6 帧（~100ms），技能 CD 中按的输入被忽略但普攻输入排入队列", "status": "pending", "evidence": "快速连续按键不会丢指令"},
+        {"id": "P1.19", "name": "战斗手感整体调校", "desc": "调整所有参数（移动速度、攻击前摇后摇、CD 时间、受击硬直帧数）直到手感爽快", "status": "pending", "evidence": "连续打 10 只杂兵不觉得卡手或拖沓"},
+        {"id": "P1.20", "name": "Phase 1 Web 浏览器验收", "desc": "导出 Web 版本，在 Chrome/Firefox/Safari 测试：所有连招可正常打出、帧率稳定、输入无延迟", "status": "pending", "evidence": "浏览器里完成完整连招演示录像"}
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "美术管线验证",
+      "goal": "翠竹林完整视觉场景，确定风格，管线可复用",
+      "weeks": "1-2",
+      "status": "pending",
+      "tasks": [
+        {"id": "P2.01", "name": "Style Bible 初版建立", "desc": "用 GPT Image-2 生成 20+ 张武侠横版场景概念图，选出 3-5 张作为风格锚点，确定色板、光影规则、线条风格", "status": "pending", "evidence": "Style Bible 文档（含锚点图 + Prompt 模板 + 32 色调色板）"},
+        {"id": "P2.02", "name": "翠竹林场景概念生成", "desc": "基于 Style Bible 生成翠竹林场景概念图（GPT Image-2），包含整体氛围、光影、竹密度参考", "status": "pending", "evidence": "1 张确定的概念图 + 3 张候选对比"},
+        {"id": "P2.03", "name": "翠竹林分层组件生成", "desc": "HappyHouse 基于概念图生成前景层（竹叶、石头）、中景层（竹竿、路径）、远景层（雾中远山）", "status": "pending", "evidence": "3 层 PNG 组件，导入 Godot 后可正确堆叠视差"},
+        {"id": "P2.04", "name": "翠竹林 3D 低模元素", "desc": "HappyHouse 生成竹子、石头、地面的低多边形 3D 模型，导入 Godot 用于中层碰撞体匹配", "status": "pending", "evidence": "3D 场景在 Godot 中加载，与 2D 图层对齐"},
+        {"id": "P2.05", "name": "翠竹林光照 + 后处理", "desc": "Godot WorldEnvironment 配置：雾效、竹叶投影、光线穿过竹林的光束效果", "status": "pending", "evidence": "场景截图 = 氛围和概念图一致"},
+        {"id": "P2.06", "name": "主角角色概念设计", "desc": "GPT Image-2 生成主角正面/侧面/背面三视图 + 5 种关键姿态（待机、普攻 4 段起手）", "status": "pending", "evidence": "三视图 + 5 姿态概念稿"},
+        {"id": "P2.07", "name": "主角骨骼绑定 + 动画", "desc": "HappyHouse 根据三视图生成多角度参考，Godot Skeleton2D 绑骨骼，注入关键帧姿态，验证插值流畅度", "status": "pending", "evidence": "主角在灰盒场景中播放待机、行走、普攻动画，无撕裂"},
+        {"id": "P2.08", "name": "敌人 A 角色制作", "desc": "同管线制作第 1 种杂兵：概念稿 → 三视图 → 骨骼 → 行走/攻击/受伤/死亡动画", "status": "pending", "evidence": "敌人在场景中行走并攻击玩家"},
+        {"id": "P2.09", "name": "敌人 B 角色制作", "desc": "第 2 种敌人（稍大体型精英型）：同上管线", "status": "pending", "evidence": "两种敌人可在同一场景中同时出现"},
+        {"id": "P2.10", "name": "命中特效初版", "desc": "GPT Image-2 生成水墨风格命中特效序列帧（火花、水墨溅射、气劲波）+ Godot CPUParticles2D 配置", "status": "pending", "evidence": "普攻命中时水墨粒子迸发"},
+        {"id": "P2.11", "name": "UI 框架初版", "desc": "血条、技能冷却图标、连击计数器的基础 UI 样式（武侠风字体 + 墨韵边框）", "status": "pending", "evidence": "战斗中 UI 清晰可读且风格匹配"},
+        {"id": "P2.12", "name": "色板映射脚本", "desc": "编写 Python 脚本：输入任意 AI 生成图 → 颜色空间压缩到 Style Bible 32 色调色板 → 输出统一风格图", "status": "pending", "evidence": "两张不同来源的图经脚本处理后色彩统一"},
+        {"id": "P2.13", "name": "批量导入脚本", "desc": "Python 脚本：监控文件夹 → AI 出图自动去背景(RMBG) → 缩放 → 放入 Godot 资源目录对应位置", "status": "pending", "evidence": "AI 出图后 10s 内自动出现在 Godot 资源浏览器"},
+        {"id": "P2.14", "name": "Phase 2 验收：翠竹林完整可玩", "desc": "灰盒场景替换为翠竹林美术，主角 + 2 敌人在场景中战斗，帧率 60fps", "status": "pending", "evidence": "浏览器中翠竹林战斗录像 + 性能截图"}
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "成长 + 场景系统",
+      "goal": "可玩的 3 个主线关卡 + 主城，成长系统运转，LLM 基础对话",
+      "weeks": "3-4",
+      "status": "pending",
+      "tasks": [
+        {"id": "P3.01", "name": "等级系统实现", "desc": "经验值公式、升级曲线、属性自动增长、升级 UI 动画", "status": "pending", "evidence": "击败敌人→获得经验→升级→属性自动提升有视觉反馈"},
+        {"id": "P3.02", "name": "熟练度系统实现", "desc": "每个技能独立熟练度计数（每次命中 +1，派生命中 +2），熟练度条 UI，达到阈值触发形态进化", "status": "pending", "evidence": "用破军 50 次后伤害提升，UI 显示进度条"},
+        {"id": "P3.03", "name": "熟练度进化数据配置", "desc": "配置所有技能的 4 个熟练度等级（25/50/75/100）对应的形态变化数据", "status": "pending", "evidence": "配置文件完整，可在 Godot 编辑器中预览各等级效果"},
+        {"id": "P3.04", "name": "秘籍残页系统实现", "desc": "残页数据结构、收集进度 UI、集齐后解锁隐藏派生的触发逻辑", "status": "pending", "evidence": "获得残页 → 收集进度更新 → 集齐 → 新派生可用"},
+        {"id": "P3.05", "name": "残页获取配置", "desc": "配置所有残页的获得条件（Boss 掉落、隐藏区域坐标、LLM 事件 flag）和对应的隐藏派生解锁", "status": "pending", "evidence": "配置文件完整，每个残页有唯一 ID 和解锁条件"},
+        {"id": "P3.06", "name": "场景加载系统", "desc": "主城常驻 + 关卡 .pck 异步加载 + 后台预加载 + 加载画面过渡", "status": "pending", "evidence": "主城选关 → 加载画面 2s → 关卡可玩 → 返回主城不重新加载"},
+        {"id": "P3.07", "name": "主城：云来镇场景制作", "desc": "主城场景美术（AI 管线）+ 基础功能 NPC（铁匠、客栈老板、江湖说书人）+ 关卡选择入口", "status": "pending", "evidence": "主城可走动、NPC 可对话、可进入关卡"},
+        {"id": "P3.08", "name": "关卡一：翠竹林完整版", "desc": "在 Phase 2 美术基础上加入：敌人波次、Boss（竹影刺客）、隐藏区域 2 个、通关条件", "status": "pending", "evidence": "翠竹林从头打到尾，击败 Boss，可找到隐藏区域"},
+        {"id": "P3.09", "name": "关卡二：铁掌山制作", "desc": "完整美术 + 敌人配置 + 可破坏锻造台机制 + Boss（铁掌帮主）+ 隐藏区域", "status": "pending", "evidence": "铁掌山完整可玩"},
+        {"id": "P3.10", "name": "关卡三：寒冰窟制作", "desc": "完整美术 + 冰面滑步机制 + 敌人配置 + Boss（冰窟守护者）+ 隐藏区域", "status": "pending", "evidence": "寒冰窟完整可玩"},
+        {"id": "P3.11", "name": "Boss AI 框架", "desc": "Boss 行为树：阶段切换（血量 2/3 和 1/3）、攻击模式轮换、霸体机制、出场/击败演出", "status": "pending", "evidence": "Boss 在不同血量阶段使用不同攻击模式"},
+        {"id": "P3.12", "name": "Node.js Proxy 服务搭建", "desc": "Express 服务器：/api/llm 转发 DeepSeek、/api/save 存档读写、静态资源分发 Godot HTML+wasm", "status": "pending", "evidence": "启动 proxy → 浏览器打开 localhost → 游戏可运行"},
+        {"id": "P3.13", "name": "DeepSeek API 对接", "desc": "封装 LLM 请求/响应处理：System Prompt 注入、超时处理、错误降级、流式响应转完整文本", "status": "pending", "evidence": "在游戏中发送请求 → 收到 LLM 回复 → 显示在对话框"},
+        {"id": "P3.14", "name": "主城 NPC 对话系统", "desc": "3 个 NPC（铁匠/客栈老板/说书人）的基础 System Prompt + LLM 对话接口 + 对话 UI 显示", "status": "pending", "evidence": "和 NPC 对话 → LLM 根据角色设定回复 → 内容不重复"},
+        {"id": "P3.15", "name": "存档系统", "desc": "实现 profile/skills/manuals/world_state/scene_progress 的序列化/反序列化 + Proxy 持久化 + localStorage 备份", "status": "pending", "evidence": "玩游戏 → 关闭浏览器 → 重新打开 → 进度保留"},
+        {"id": "P3.16", "name": "Phase 3 验收：3 关 + 主城完整流程", "desc": "新玩家从主城开始 → 升级 → 技能熟练度变化 → 找到残页 → 打通三关 → 存档恢复", "status": "pending", "evidence": "完整流程录像 + 存档恢复验证截图"}
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "LLM 深度集成",
+      "goal": "LLM 驱动的完整叙事循环：NPC 记忆、支线生成、章节压缩",
+      "weeks": "2-3",
+      "status": "pending",
+      "tasks": [
+        {"id": "P4.01", "name": "NPC 记忆系统", "desc": "每个 NPC 保存对话历史摘要（最近 5 轮完整 + 历史压缩摘要），下次对话时注入上下文", "status": "pending", "evidence": "和铁匠聊完天→下次对话他还记得上次的事"},
+        {"id": "P4.02", "name": "NPC 态度系统", "desc": "根据声望值决定 NPC 态度（友好/中立/冷淡/敌视）→ 影响对话语气、信息给多少、是否触发支线", "status": "pending", "evidence": "声望 -50 的铁掌帮 NPC 拒绝和玩家说话"},
+        {"id": "P4.03", "name": "支线任务动态生成引擎", "desc": "LLM 根据当前场景 + 世界状态 + 玩家行为生成支线结构（目标、敌人配置、奖励、剧情文本），Godot 侧解析执行", "status": "pending", "evidence": "两次进入同一场景 → LLM 生成不同支线 → 可实际完成"},
+        {"id": "P4.04", "name": "支线场景复用映射", "desc": "定义支线任务模板：每种场景允许的支线类型、可替换参数（敌人类型/数量/目标坐标/NPC 名称）", "status": "pending", "evidence": "铁掌山可生成 5+ 种不同支线而不需要新地图"},
+        {"id": "P4.05", "name": "章节摘要自动压缩", "desc": "章节结束 → 收集本章所有关键事件 → 发给 DeepSeek Pro → 生成 200 字摘要 → 存入 llm_context", "status": "pending", "evidence": "打完整章后存档中的 chapter_summaries 有内容且准确"},
+        {"id": "P4.06", "name": "NPC 关系快照机制", "desc": "每当 NPC 态度发生重大变化（声望 ±30 以上），自动生成 NPC 关系快照摘要", "status": "pending", "evidence": "存档中 npc_snapshots 随游戏进程更新"},
+        {"id": "P4.07", "name": "LLM 预生成管线", "desc": "玩家进入关卡前 → 后台预请求该场景 NPC 基础对话池（10-20 句随机对话）+ 场景环境描述", "status": "pending", "evidence": "进入场景后 NPC 对话立即可用，无加载等待"},
+        {"id": "P4.08", "name": "LLM 缓存策略", "desc": "相同 NPC + 相同世界状态哈希 → 24h 内复用缓存结果；状态变化后自动失效", "status": "pending", "evidence": "连续进同一场景两次 → 第二次对话更快（缓存命中）"},
+        {"id": "P4.09", "name": "LLM 降级兜底", "desc": "超时 5s → 降级到预设对话模板表（每个 NPC 20 条预设，按态度分类）；连续失败 3 次 → 暂停 LLM 功能并提示玩家", "status": "pending", "evidence": "断网状态下和 NPC 对话 → 显示预设对话而非空白"},
+        {"id": "P4.10", "name": "叙事安全边界实现", "desc": "System Prompt 硬编码禁止内容类型 + Proxy 层正则过滤（政治/色情/暴力关键词）+ 每次 LLM 返回后检查", "status": "pending", "evidence": "尝试让 NPC 说敏感内容 → 被过滤 → 输出预设安全回复"},
+        {"id": "P4.11", "name": "支线-主线联动逻辑", "desc": "支线完成后 → 更新 world_state 中的 reputation 和 npc 状态 → 主线 NPC 引用这些变化（仅信息层面，不改主线难度）", "status": "pending", "evidence": "支线救了某 NPC → 主线场景中出现那个 NPC 的道具或留言"},
+        {"id": "P4.12", "name": "难度自适应（LLM 侧）", "desc": "检测玩家连续失败 3 次同一关卡 → LLM 生成战术建议（非降低敌人属性）→ NPC 主动提供帮助或推送练习支线", "status": "pending", "evidence": "连续失败后 NPC 说'少侠，不妨先去练练破军的蓄力'→可接练习支线"},
+        {"id": "P4.13", "name": "对话 UI 深度版", "desc": "对话界面：NPC 头像、态度指示器、对话选项（最多 3 个）、打字机效果、历史记录回看", "status": "pending", "evidence": "对话流畅，有选项分支，态度标记清晰"},
+        {"id": "P4.14", "name": "Flow/Pro 路由决策器", "desc": "实现路由规则：日常闲聊→Flash，重大剧情→Pro。优先级队列：战斗中禁用 Pro（等太久），非战斗时才触发 Pro 深度对话", "status": "pending", "evidence": "不同场景 NPC 对话延迟符合预期：闲聊快、剧情慢但深度高"},
+        {"id": "P4.15", "name": "Phase 4 验收：LLM 叙事完整性", "desc": "完整打一章 → NPC 有记忆 → 支线有变化 → 章节有摘要 → 同一个 NPC 在不同声望下反应不同", "status": "pending", "evidence": "两个不同声望存档的角色分别对话，NPC 态度明显不同"}
+      ]
+    },
+    {
+      "id": "P5",
+      "name": "全量内容",
+      "goal": "6-8 关全量 + 5 个 Boss + 8 种敌人 + 秘籍全配置 + 音频",
+      "weeks": "4-6",
+      "status": "pending",
+      "tasks": [
+        {"id": "P5.01", "name": "关卡四：黑风寨制作", "desc": "多层高低差结构 + 敌人配置 + Boss（黑风寨主）+ 隐藏区域", "status": "pending", "evidence": "黑风寨完整可玩"},
+        {"id": "P5.02", "name": "关卡五：桃花渡制作", "desc": "水中减速机制 + 石台跳跃 + 敌人配置 + Boss（桃花仙子）+ 隐藏区域", "status": "pending", "evidence": "桃花渡完整可玩"},
+        {"id": "P5.03", "name": "关卡六：古剑冢制作", "desc": "拔剑机关 + 隐藏 Boss 触发 + 敌人配置 + Boss（剑灵）+ 隐藏区域", "status": "pending", "evidence": "古剑冢完整可玩"},
+        {"id": "P5.04", "name": "关卡七：天龙寺制作", "desc": "钟声震动机制 + 敌人配置 + Boss（天龙方丈）+ 隐藏区域", "status": "pending", "evidence": "天龙寺完整可玩"},
+        {"id": "P5.05", "name": "关卡八：断魂崖制作", "desc": "天气变化影响视野 + 终极 Boss 战 + 结局", "status": "pending", "evidence": "断魂崖终极战完整可玩，通关有结局"},
+        {"id": "P5.06", "name": "敌人家族扩展", "desc": "增加 6 种新敌人（每种匹配不同场景视觉 + 行为），总计 8 种敌人", "status": "pending", "evidence": "每种敌人在至少 2 个不同场景中出现"},
+        {"id": "P5.07", "name": "秘籍残页全量配置", "desc": "设计并配置所有隐藏派生的残页需求、解锁条件、派生效果", "status": "pending", "evidence": "全部残页可在游戏中合法获取且解锁对应派生"},
+        {"id": "P5.08", "name": "主城进化系统", "desc": "主城随主线章节变化：NPC 增减、建筑变化（新店铺开启/破损修复）、环境色调变化、新区域解锁", "status": "pending", "evidence": "打完第三章后回主城 → 主城和初期明显不同"},
+        {"id": "P5.09", "name": "主城 NPC 全量配置", "desc": "增加到 8-12 个 NPC（每个有独立 System Prompt、态度系统、记忆系统），LLM 驱动全部对话", "status": "pending", "evidence": "主城中每个 NPC 都有独特的角色设定和对话风格"},
+        {"id": "P5.10", "name": "江湖声望完整系统", "desc": "实现多派系声望（铁掌帮、峨眉、少林、黑风寨等至少 5 派），声望影响 NPC 反应、支线可接性、部分主线的剧情分支", "status": "pending", "evidence": "不同的声望组合会导致不同的 NPC 对话和可接支线"},
+        {"id": "P5.11", "name": "打击音效集成", "desc": "素材库筛选 + MiniMax 补充生成 → 给所有攻击类型配好音效（普攻 4 段、3 技能×N 派生、受伤、闪避、格挡）", "status": "pending", "evidence": "每种动作都有对应的音效且不重复"},
+        {"id": "P5.12", "name": "环境音效集成", "desc": "MiniMax 生成 6-8 个场景的环境音（竹林风声、锻造炉火声、冰窟寒风、流水、钟声、雷雨），循环播放", "status": "pending", "evidence": "进入不同场景立即听到不同的环境音"},
+        {"id": "P5.13", "name": "BGM 制作", "desc": "MiniMax + Suno 生成主题曲 + 战斗曲 × 3（普通/Boss/最终战）+ 主城曲 + 叙事曲，剪辑成可循环版本", "status": "pending", "evidence": "主城/关卡/Boss 战各有独立 BGM，循环无断点"},
+        {"id": "P5.14", "name": "技能特效全量", "desc": "为所有技能及其派生制作命中特效序列帧（水墨 + 气劲风格），CPUParticles2D 粒子系统配置", "status": "pending", "evidence": "每个技能派生都有独特的视觉特效"},
+        {"id": "P5.15", "name": "过场演出系统", "desc": "关键剧情节点（章节开头/结尾、Boss 登场、重大选择）的简易过场（镜头移动 + NPC 动作 + 文字 + 配音）", "status": "pending", "evidence": "章节开始和 Boss 登场有过场演出"},
+        {"id": "P5.16", "name": "Phase 5 验收：全量内容可玩", "desc": "从头到尾通完全部 6-8 关，所有系统正常运转，内容量足够", "status": "pending", "evidence": "完整通关录像 + 所有 Boss 击败截图"}
+      ]
+    },
+    {
+      "id": "P6",
+      "name": "打磨与发布",
+      "goal": "性能达标、移动端适配、部署上线",
+      "weeks": "2-3",
+      "status": "pending",
+      "tasks": [
+        {"id": "P6.01", "name": "Web 加载性能优化", "desc": "Godot export 参数调优（wasm 压缩、资源裁剪、线程数）；主城首载目标 <5s (4G)", "status": "pending", "evidence": "Lighthouse 性能评分 >80，首载时间实测 <5s"},
+        {"id": "P6.02", "name": "内存优化", "desc": "纹理压缩、音频流式加载、关卡 .pck 释放确认、wasm heap 监控；目标运行时 <256MB", "status": "pending", "evidence": "Chrome Task Manager 内存稳定 <256MB"},
+        {"id": "P6.03", "name": "帧率优化", "desc": "粒子数量限制、敌人 AI 更新频率降低（远处敌人 5fps 更新）、特效 LOD；目标桌面 60fps / 移动 30fps", "status": "pending", "evidence": "多敌人同屏（20+）帧率不跌落目标值"},
+        {"id": "P6.04", "name": "移动浏览器适配", "desc": "响应式 Canvas、虚拟触控按键、视口缩放、移动端输入延迟优化", "status": "pending", "evidence": "iOS Safari + Android Chrome 可正常游玩"},
+        {"id": "P6.05", "name": "移动端 UI 重构", "desc": "触控友好的按钮大小（>44px 热区）、技能冷却的可视化、针对竖屏/横屏自适应布局", "status": "pending", "evidence": "手机横屏游玩时 UI 清晰可触碰"},
+        {"id": "P6.06", "name": "手柄支持完善", "desc": "XInput/DualSense 完整映射、手柄震动、按键图标自动切换（Xbox/PS 布局）", "status": "pending", "evidence": "插上手柄即玩，按键提示正确"},
+        {"id": "P6.07", "name": "加载画面 + 进游戏流程", "desc": "启动加载进度条、标题画面（带 LLM 生成的随机江湖诗句）、游戏菜单（新游戏/继续/设置）", "status": "pending", "evidence": "从 URL 打开到进入主城全流程流畅"},
+        {"id": "P6.08", "name": "设置面板", "desc": "音量（BGM/SFX 分开）、画面（粒子质量/震动开关）、语言（预留中/英切换）", "status": "pending", "evidence": "设置可调整并持久化"},
+        {"id": "P6.09", "name": "Bug 修复轮次一", "desc": "全流程通关测试 → 收集所有 bug → 修到零阻断性 bug、零崩溃", "status": "pending", "evidence": "完整通关 3 次无崩溃无阻断"},
+        {"id": "P6.10", "name": "Bug 修复轮次二", "desc": "修 UI/体验类 bug：文字溢出、动画穿模、音效缺失、LLM 回复质量低下", "status": "pending", "evidence": "所有已知体验 bug 清空"},
+        {"id": "P6.11", "name": "战斗平衡调校", "desc": "所有 Boss 难度曲线检查、技能数值平衡、残页获取难度合理、升级曲线平滑", "status": "pending", "evidence": "用 3 种不同打法通关，难度曲线一致"},
+        {"id": "P6.12", "name": "LLM 对话质量审核", "desc": "抽查 100 轮 LLM 对话 → 标记质量低下的 → 调整 System Prompt → 重新验证", "status": "pending", "evidence": "95% 以上 LLM 回复贴合角色设定且有趣"},
+        {"id": "P6.13", "name": "部署上线", "desc": "VPS 配置 Nginx + Node.js + SSL、域名绑定、Godot HTML+wasm 部署、健康检查", "status": "pending", "evidence": "公网 URL 可访问游戏，可正常游玩"},
+        {"id": "P6.14", "name": "最终验收", "desc": "新用户视角：打开 URL → 开始游戏 → 完整通关 → 支线有变化 → 存档正常 → 手机也能玩", "status": "pending", "evidence": "完整通关录像 + 移动端截图 + 性能报告"}
+      ]
+    }
+  ],
+  "summary": {
+    "total_tasks": 95,
+    "phase_counts": {
+      "P1": 20,
+      "P2": 14,
+      "P3": 16,
+      "P4": 15,
+      "P5": 16,
+      "P6": 14
+    },
+    "total_weeks_min": 14,
+    "total_weeks_max": 23
+  }
+}

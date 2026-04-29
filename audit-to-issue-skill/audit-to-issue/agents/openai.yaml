@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit To Issue"
+  short_description: "Finish repo audits and keep findings in one issue."
+  default_prompt: "Use $audit-to-issue to finish a full-repo audit and keep confirmed findings consolidated in one GitHub issue."
