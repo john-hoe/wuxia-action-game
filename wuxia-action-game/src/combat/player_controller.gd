@@ -46,6 +46,9 @@ var facing_dir: float = 1.0
 const PLAYER_MAX_HEALTH: float = 100.0
 var player_health: float = PLAYER_MAX_HEALTH
 
+signal health_changed(current_hp: float, max_hp: float)
+signal combo_updated(current_combo: int, max_combo: int)
+
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
 @onready var hit_feedback: HitFeedback = $HitFeedback
@@ -294,9 +297,8 @@ func take_damage(amount: float, source: Node) -> void:
 	_update_debug_label()
 
 func _update_debug_label() -> void:
-	var label := get_node_or_null("/root/Game/DebugLabel")
-	if label:
-		label.text = "HP: %d  |  Combo: %d/12" % [int(player_health), combo_engine.total_hits]
+	health_changed.emit(player_health, PLAYER_MAX_HEALTH)
+	combo_updated.emit(combo_engine.total_hits, 12)
 
 func _on_combo_advanced(segment: int) -> void:
 	match segment:

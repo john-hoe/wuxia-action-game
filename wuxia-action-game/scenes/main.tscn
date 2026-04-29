@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://main00100000000000001"]
+[gd_scene load_steps=14 format=3 uid="uid://main00100000000000001"]
 
 [ext_resource type="Script" path="res://src/combat/player_controller.gd" id="1"]
 [ext_resource type="Script" path="res://src/combat/combo_engine.gd" id="2"]
@@ -10,21 +10,14 @@
 [ext_resource type="Script" path="res://src/combat/input_buffer.gd" id="8"]
 [ext_resource type="Script" path="res://src/combat/player_animation.gd" id="9"]
 [ext_resource type="PackedScene" path="res://scenes/enemies/elite.tscn" id="10"]
+[ext_resource type="Script" path="res://src/ui/hp_bar.gd" id="11"]
+[ext_resource type="Script" path="res://src/ui/skill_icons.gd" id="12"]
+[ext_resource type="Script" path="res://src/ui/combo_counter.gd" id="13"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_48x96"]
 size = Vector2(48, 96)
 
 [node name="Game" type="Node2D"]
-
-[node name="DebugLabel" type="Label" parent="."]
-offset_left = 860.0
-offset_top = 20.0
-offset_right = 1060.0
-offset_bottom = 50.0
-text = "Combo: 0/12"
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_constants/shadow_offset_x = 1
-theme_override_constants/shadow_offset_y = 1
 
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
 scroll_offset = Vector2(0, 0)
@@ -113,3 +106,37 @@ position = Vector2(1400, 540)
 
 [node name="UILayer" type="CanvasLayer" parent="."]
 layer = 1
+
+[node name="DebugLabel" type="Label" parent="UILayer"]
+offset_left = 860.0
+offset_top = 20.0
+offset_right = 1060.0
+offset_bottom = 50.0
+text = "HP: 100  |  Combo: 0/12"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+
+[node name="HPBar" type="ProgressBar" parent="UILayer"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 44.0
+max_value = 100.0
+value = 100.0
+percent_visible = false
+script = ExtResource("11")
+
+[node name="SkillIcons" type="HBoxContainer" parent="UILayer"]
+offset_left = 720.0
+offset_top = 620.0
+offset_right = 900.0
+offset_bottom = 676.0
+script = ExtResource("12")
+
+[node name="ComboCounter" type="RichTextLabel" parent="UILayer"]
+offset_left = 880.0
+offset_top = 580.0
+offset_right = 1040.0
+offset_bottom = 614.0
+script = ExtResource("13")

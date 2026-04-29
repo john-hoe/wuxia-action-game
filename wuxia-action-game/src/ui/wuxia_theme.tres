@@ -1,0 +1,18 @@
+[gd_resource type="Theme" load_steps=0 format=3 uid="uid://cwxtheme001"]
+
+[resource]
+
+;; 朱砂 Vermilion — primary accent (HP bar fill, combo highlight)
+;; 墨黑 Ink Black — background panels
+;; 烫金 Gold — skill icons ready state, combo max color
+
+const_colors = {
+"vermilion": Color(0.82, 0.18, 0.12, 1),
+"vermilion_dark": Color(0.55, 0.08, 0.05, 1),
+"ink_black": Color(0.05, 0.05, 0.05, 1),
+"ink_translucent": Color(0.05, 0.05, 0.05, 0.7),
+"gold": Color(0.92, 0.72, 0.18, 1),
+"gold_dim": Color(0.6, 0.45, 0.1, 1),
+"jade_green": Color(0.25, 0.7, 0.45, 1),
+"parchment": Color(0.9, 0.85, 0.72, 1),
+}
