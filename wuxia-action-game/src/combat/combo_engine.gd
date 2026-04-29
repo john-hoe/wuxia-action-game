@@ -13,6 +13,8 @@ var current_segment: int = 0
 var total_hits: int = 0
 var is_in_window: bool = false
 var combo_queued: bool = false
+var _window_timer: SceneTreeTimer = null
+var _anim_timer: SceneTreeTimer = null
 
 func try_attack() -> bool:
 	if total_hits >= MAX_COMBO:
@@ -23,11 +25,10 @@ func try_attack() -> bool:
 		_start_combo()
 		return true
 
-	if is_in_window:
-		combo_queued = true
-		return true
-
-	return false
+	# Buffer input unconditionally while combo is active — the window timer
+	# will consume it when it fires. This fixes mashing J to chain combos.
+	combo_queued = true
+	return true
 
 func _start_combo() -> void:
 	current_segment = 1
@@ -47,8 +48,19 @@ func _advance_segment() -> void:
 func _schedule_window() -> void:
 	var segment_duration: float = 0.4  # ~400ms per attack segment
 	var window_start := segment_duration - (CANCEL_WINDOW_FRAMES / 60.0)
-	get_tree().create_timer(window_start).timeout.connect(_open_window)
-	get_tree().create_timer(segment_duration).timeout.connect(_on_anim_finished)
+	_cancel_timers()
+	_window_timer = get_tree().create_timer(window_start)
+	_window_timer.timeout.connect(_open_window)
+	_anim_timer = get_tree().create_timer(segment_duration)
+	_anim_timer.timeout.connect(_on_anim_finished)
+
+func _cancel_timers() -> void:
+	if _window_timer:
+		_window_timer.timeout.disconnect(_open_window)
+		_window_timer = null
+	if _anim_timer:
+		_anim_timer.timeout.disconnect(_on_anim_finished)
+		_anim_timer = null
 
 func _open_window() -> void:
 	if combo_queued:
@@ -71,8 +83,10 @@ func _on_anim_finished() -> void:
 		_force_recovery()
 
 func _force_recovery() -> void:
+	var finished_segment := current_segment
+	_cancel_timers()
 	current_segment = 0
 	total_hits = 0
 	is_in_window = false
 	combo_queued = false
-	combo_ended.emit(current_segment)
+	combo_ended.emit(finished_segment)
