@@ -43,6 +43,9 @@ var is_invulnerable: bool = false
 var _iframes_timer: SceneTreeTimer = null
 var facing_dir: float = 1.0
 
+const PLAYER_MAX_HEALTH: float = 100.0
+var player_health: float = PLAYER_MAX_HEALTH
+
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
 @onready var hit_feedback: HitFeedback = $HitFeedback
@@ -56,6 +59,7 @@ func _ready() -> void:
 	combo_engine.combo_ended.connect(_on_combo_ended)
 	combo_engine.aerial_state = $AerialState
 	combo_engine.load_derivation_table(ComboData.DERIVATIONS)
+	combo_engine.derivation_triggered.connect(_on_derivation_triggered)
 	$AerialState.aerial_attack.connect(_on_aerial_attack)
 
 func _physics_process(delta: float) -> void:
@@ -275,7 +279,15 @@ func take_damage(amount: float, source: Node) -> void:
 	if is_parrying:
 		_end_parry(true)
 		return
-	# Take damage normally in future iterations
+	player_health -= amount
+	if player_health <= 0:
+		player_health = 0
+	_update_debug_label()
+
+func _update_debug_label() -> void:
+	var label := get_node_or_null("/root/Game/DebugLabel")
+	if label:
+		label.text = "HP: %d  |  Combo: %d/12" % [int(player_health), combo_engine.total_hits]
 
 func _on_combo_advanced(segment: int) -> void:
 	match segment:
@@ -284,14 +296,10 @@ func _on_combo_advanced(segment: int) -> void:
 		3: $Sprite.color = Color(0.9, 0.4, 0.3)
 		4: $Sprite.color = Color(0.9, 0.2, 0.2)
 	_hit_enemies_in_melee(segment)
-	var label := get_node_or_null("/root/Game/DebugLabel")
-	if label:
-		label.text = "Combo: %d/12" % combo_engine.total_hits
+	_update_debug_label()
 
 func _on_combo_ended(_final_segment: int) -> void:
-	var label := get_node_or_null("/root/Game/DebugLabel")
-	if label:
-		label.text = "Combo: 0/12"
+	_update_debug_label()
 
 func _on_aerial_attack(attack_num: int) -> void:
 	combo_engine.register_hit()
@@ -300,3 +308,66 @@ func _on_aerial_attack(attack_num: int) -> void:
 	for enemy in _get_enemies_in_range(90.0):
 		enemy.apply_hit(0.25, 120.0, 15.0 * _get_damage_multiplier(), global_position, Vector2(0, -80), BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
 		break
+
+func _on_derivation_triggered(segment: int, skill_id: String) -> void:
+	var deriv_data: Dictionary = ComboData.DERIVATIONS.get(segment, {}).get(skill_id, {})
+	if deriv_data.is_empty():
+		return
+	var damage_mult: float = deriv_data.get("damage_mult", 1.0)
+	var effect: String = deriv_data.get("effect", "")
+	var base_damage: float
+	match skill_id:
+		"pojun": base_damage = 25.0
+		"huifeng": base_damage = 30.0
+		"ningshen": base_damage = 40.0
+		_: base_damage = 20.0
+	var dmg := base_damage * damage_mult * _get_damage_multiplier()
+
+	match effect:
+		"gap_close", "pierce", "armor_break":
+			$Sprite.color = Color(1.0, 0.5, 0.0)
+			hit_feedback.trigger_hitstop(0.05)
+			for enemy in _get_enemies_in_range(150.0):
+				enemy.apply_hit(0.35, 300.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.HEAVY_STAGGER, combo_engine.total_hits)
+				break
+		"knockback", "finisher":
+			hit_feedback.trigger_hitstop_with_shake(0.06, 5.0)
+			for enemy in _get_enemies_in_range(200.0):
+				var kb_dir := (enemy.global_position - global_position).normalized()
+				enemy.apply_hit(0.4, 350.0, dmg, global_position, kb_dir * 150.0, BaseEnemy.HitReaction.KNOCKDOWN, combo_engine.total_hits)
+		"launch":
+			hit_feedback.trigger_hitstop(0.04)
+			for enemy in _get_enemies_in_range(120.0):
+				enemy.apply_hit(0.35, 250.0, dmg, global_position, Vector2(0, -200), BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
+				break
+		"pull_strong", "tornado":
+			hit_feedback.trigger_hitstop_with_shake(0.05, 3.0)
+			for enemy in _get_enemies_in_range(180.0):
+				var pull_dir := (global_position - enemy.global_position).normalized()
+				enemy.apply_hit(0.3, 200.0, dmg, global_position, pull_dir * 200.0, BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
+		"extended_parry":
+			_start_parry()
+		"advance_combo":
+			hit_feedback.trigger_hitstop(0.03)
+			for enemy in _get_enemies_in_range(100.0):
+				enemy.apply_hit(0.2, 100.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.LIGHT_STUN, combo_engine.total_hits)
+				break
+		"buff_extend":
+			if has_damage_buff:
+				if _buff_timer and _buff_timer.time_left > 0:
+					_buff_timer.timeout.disconnect(_clear_damage_buff)
+				_buff_timer = get_tree().create_timer(NINGSHEN_BUFF_DURATION)
+				_buff_timer.timeout.connect(_clear_damage_buff)
+			hit_feedback.trigger_hitstop(0.03)
+			for enemy in _get_enemies_in_range(120.0):
+				enemy.apply_hit(0.2, 100.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.LIGHT_STUN, combo_engine.total_hits)
+				break
+		"perfect_counter":
+			hit_feedback.trigger_hitstop_with_shake(0.08, 6.0)
+			for enemy in _get_enemies_in_range(180.0):
+				enemy.apply_hit(0.6, 500.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.KNOCKDOWN, combo_engine.total_hits)
+		_:
+			hit_feedback.trigger_hitstop(0.03)
+			for enemy in _get_enemies_in_range(100.0):
+				enemy.apply_hit(0.2, 100.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.LIGHT_STUN, combo_engine.total_hits)
+				break
