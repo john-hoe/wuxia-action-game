@@ -144,7 +144,7 @@ func _get_damage_multiplier() -> float:
 
 func _hit_enemy_with_pojun(enemy: Node) -> void:
 	hit_feedback.trigger_hitstop(0.05)
-	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0 * _get_damage_multiplier(), global_position, Vector2.ZERO, BaseEnemy.HitReaction.HEAVY_STAGGER)
+	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0 * _get_damage_multiplier(), global_position, Vector2.ZERO, BaseEnemy.HitReaction.HEAVY_STAGGER, combo_engine.total_hits)
 
 func _try_cast_huifeng() -> void:
 	if combo_engine.try_skill_derivation("huifeng"):
@@ -160,7 +160,7 @@ func _execute_huifeng() -> void:
 
 	for enemy in _get_enemies_in_range(HUIFENG_RADIUS):
 		var pull_dir := (global_position - enemy.global_position).normalized()
-		enemy.apply_hit(0.3, HUIFENG_KNOCKBACK, HUIFENG_DAMAGE * _get_damage_multiplier(), global_position, pull_dir * HUIFENG_PULL_STRENGTH, BaseEnemy.HitReaction.LAUNCH)
+		enemy.apply_hit(0.3, HUIFENG_KNOCKBACK, HUIFENG_DAMAGE * _get_damage_multiplier(), global_position, pull_dir * HUIFENG_PULL_STRENGTH, BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
 
 	await get_tree().create_timer(0.4).timeout
 	is_huifeng_animating = false
@@ -192,7 +192,7 @@ func _execute_counter() -> void:
 
 	var enemies := _get_enemies_in_range(150.0)
 	for enemy in enemies:
-		enemy.apply_hit(0.6, 400.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.KNOCKDOWN)
+		enemy.apply_hit(0.6, 400.0, dmg, global_position, Vector2.ZERO, BaseEnemy.HitReaction.KNOCKDOWN, combo_engine.total_hits)
 
 	if _buff_timer and _buff_timer.time_left > 0:
 		_buff_timer.timeout.disconnect(_clear_damage_buff)
