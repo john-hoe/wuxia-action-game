@@ -111,8 +111,11 @@ func _process_dash(delta: float) -> void:
 		is_dashing = false
 		$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
 
+func _get_damage_multiplier() -> float:
+	return NINGSHEN_BUFF_MULTIPLIER if has_damage_buff else 1.0
+
 func _hit_enemy_with_pojun(enemy: Node) -> void:
-	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0, global_position)
+	enemy.apply_hit(POJUN_STUN_DURATION, 300.0, 25.0 * _get_damage_multiplier(), global_position)
 
 func _try_cast_huifeng() -> void:
 	if not skill_system.try_cast("huifeng"):
@@ -123,19 +126,9 @@ func _execute_huifeng() -> void:
 	is_huifeng_animating = true
 	$Sprite.color = Color(0.5, 1.0, 0.5)  # green flash for AOE
 
-	var space_state := get_world_2d().direct_space_state
-	var query := PhysicsShapeQueryParameters2D.new()
-	var circle := CircleShape2D.new()
-	circle.radius = HUIFENG_RADIUS
-	query.shape = circle
-	query.transform = Transform2D(0, global_position)
-
-	var results: Array = space_state.intersect_shape(query)
-	for result in results:
-		var body := result.collider
-		if body is BaseEnemy:
-			var pull_dir := (global_position - body.global_position).normalized()
-			body.apply_hit(0.3, HUIFENG_KNOCKBACK, HUIFENG_DAMAGE, global_position, pull_dir * HUIFENG_PULL_STRENGTH)
+	for enemy in _get_enemies_in_range(HUIFENG_RADIUS):
+		var pull_dir := (global_position - enemy.global_position).normalized()
+		enemy.apply_hit(0.3, HUIFENG_KNOCKBACK, HUIFENG_DAMAGE * _get_damage_multiplier(), global_position, pull_dir * HUIFENG_PULL_STRENGTH)
 
 	await get_tree().create_timer(0.4).timeout
 	is_huifeng_animating = false
@@ -160,11 +153,11 @@ func _end_parry(success: bool) -> void:
 func _execute_counter() -> void:
 	has_damage_buff = true
 	var is_perfect: bool = parry_timer > NINGSHEN_PARRY_WINDOW - NINGSHEN_PERFECT_WINDOW
-	var damage := 80.0 if is_perfect else 40.0
+	var dmg := (40.0 * (2.0 if is_perfect else 1.0)) * _get_damage_multiplier()
 
 	var enemies := _get_enemies_in_range(150.0)
 	for enemy in enemies:
-		enemy.apply_hit(0.6, 400.0, damage, global_position)
+		enemy.apply_hit(0.6, 400.0, dmg, global_position)
 
 	if _buff_timer and _buff_timer.time_left > 0:
 		_buff_timer.timeout.disconnect(_clear_damage_buff)
