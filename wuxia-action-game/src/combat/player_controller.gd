@@ -16,6 +16,12 @@ var dash_direction: float = 1.0
 var dash_timer: float = 0.0
 var _dash_hit_enemies: Array = []
 
+const HUIFENG_RADIUS: float = 200.0
+const HUIFENG_PULL_STRENGTH: float = 150.0
+const HUIFENG_KNOCKBACK: float = 200.0
+const HUIFENG_DAMAGE: float = 30.0
+var is_huifeng_animating: bool = false
+
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
 
@@ -54,10 +60,12 @@ func _apply_depth_transition(delta: float) -> void:
 	modulate = modulate.lerp(target_modulate, 10.0 * delta)
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("attack"):
+	if event.is_action_pressed("attack") and not is_dashing and not is_huifeng_animating:
 		combo_engine.try_attack()
 	if event.is_action_pressed("skill_1"):
 		_try_cast_pojun()
+	if event.is_action_pressed("skill_2"):
+		_try_cast_huifeng()
 
 func _try_cast_pojun() -> void:
 	if not skill_system.try_cast("pojun"):
@@ -89,6 +97,39 @@ func _process_dash(delta: float) -> void:
 
 func _hit_enemy_with_pojun(enemy: Node) -> void:
 	enemy.apply_hit(stun_duration=POJUN_STUN_DURATION, knockback_force=300.0, damage=25.0, attacker_pos=global_position)
+
+func _try_cast_huifeng() -> void:
+	if not skill_system.try_cast("huifeng"):
+		return
+	_execute_huifeng()
+
+func _execute_huifeng() -> void:
+	is_huifeng_animating = true
+	$Sprite.color = Color(0.5, 1.0, 0.5)  # green flash for AOE
+
+	var space_state := get_world_2d().direct_space_state
+	var query := PhysicsShapeQueryParameters2D.new()
+	var circle := CircleShape2D.new()
+	circle.radius = HUIFENG_RADIUS
+	query.shape = circle
+	query.transform = Transform2D(0, global_position)
+
+	var results: Array = space_state.intersect_shape(query)
+	for result in results:
+		var body := result.collider
+		if body is BaseEnemy:
+			var pull_dir := (global_position - body.global_position).normalized()
+			body.apply_hit(
+				stun_duration=0.3,
+				knockback_force=HUIFENG_KNOCKBACK,
+				damage=HUIFENG_DAMAGE,
+				attacker_pos=global_position,
+				extra_impulse=pull_dir * HUIFENG_PULL_STRENGTH
+			)
+
+	await get_tree().create_timer(0.4).timeout
+	is_huifeng_animating = false
+	$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
 
 func _on_combo_advanced(segment: int) -> void:
 	match segment:
