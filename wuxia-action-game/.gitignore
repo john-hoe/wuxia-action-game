@@ -16,7 +16,5 @@ build/
 .omc/
 .claude/
 
-# Non-game docs
-data/
-docs/
+# Non-game content (skill pack at repo level, not Godot project)
 audit-to-issue-skill/

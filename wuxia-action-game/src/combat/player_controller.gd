@@ -257,16 +257,16 @@ func _end_dodge() -> void:
 func _end_dodge_iframes() -> void:
 	is_invulnerable = false
 
-func _get_enemies_in_range(radius: float) -> Array:
-	var space_state := get_world_2d().direct_space_state
-	var query := PhysicsShapeQueryParameters2D.new()
-	var circle := CircleShape2D.new()
+func _get_enemies_in_range(radius: float) -> Array[BaseEnemy]:
+	var space_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var query: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
+	var circle: CircleShape2D = CircleShape2D.new()
 	circle.radius = radius
 	query.shape = circle
 	query.transform = Transform2D(0, global_position)
 
-	var results: Array = space_state.intersect_shape(query)
-	var enemies: Array = []
+	var results: Array[Dictionary] = space_state.intersect_shape(query)
+	var enemies: Array[BaseEnemy] = []
 	for result in results:
 		var body: Node = result.collider
 		if body is BaseEnemy:
@@ -333,7 +333,7 @@ func _on_derivation_triggered(segment: int, skill_id: String) -> void:
 		"knockback", "finisher":
 			hit_feedback.trigger_hitstop_with_shake(0.06, 5.0)
 			for enemy in _get_enemies_in_range(200.0):
-				var kb_dir := (enemy.global_position - global_position).normalized()
+				var kb_dir: Vector2 = (enemy.global_position - global_position).normalized()
 				enemy.apply_hit(0.4, 350.0, dmg, global_position, kb_dir * 150.0, BaseEnemy.HitReaction.KNOCKDOWN, combo_engine.total_hits)
 		"launch":
 			hit_feedback.trigger_hitstop(0.04)
@@ -343,7 +343,7 @@ func _on_derivation_triggered(segment: int, skill_id: String) -> void:
 		"pull_strong", "tornado":
 			hit_feedback.trigger_hitstop_with_shake(0.05, 3.0)
 			for enemy in _get_enemies_in_range(180.0):
-				var pull_dir := (global_position - enemy.global_position).normalized()
+				var pull_dir: Vector2 = (global_position - enemy.global_position).normalized()
 				enemy.apply_hit(0.3, 200.0, dmg, global_position, pull_dir * 200.0, BaseEnemy.HitReaction.LAUNCH, combo_engine.total_hits)
 		"extended_parry":
 			_start_parry()
