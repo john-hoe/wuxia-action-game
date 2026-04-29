@@ -1,0 +1,36 @@
+[gd_scene load_steps=4 format=3 uid="uid://delite001"]
+
+[ext_resource type="Script" path="res://src/enemies/elite_enemy.gd" id="1_elite"]
+
+[sub_resource type="RectangleShape2D" id="elite_shape"]
+size = Vector2(64, 128)
+
+[sub_resource type="RectangleShape2D" id="elite_attack_shape"]
+size = Vector2(90, 140)
+
+[node name="Elite" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_elite")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("elite_shape")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+size = Vector2(64, 128)
+position = Vector2(-32, -128)
+color = Color(0.8, 0.5, 0.1, 1.0)
+
+[node name="AttackHitbox" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitbox"]
+shape = SubResource("elite_attack_shape")
+position = Vector2(0, -65)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+
+[node name="Skeleton2D" type="Skeleton2D" parent="."]
+
+[connection signal="body_entered" from="AttackHitbox" to="." method="_on_attack_hitbox_body_entered"]

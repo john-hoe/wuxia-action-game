@@ -15,6 +15,9 @@ var facing_dir: float = 1.0
 var _attack_windup_timer: SceneTreeTimer = null
 var _current_attack_type: int = 0  # 0 = punch (fast/weak), 1 = kick (slow/strong)
 
+@onready var anim: AnimationPlayer = $AnimationPlayer
+
+
 func _ready() -> void:
 	health = 80.0
 	attack_damage = 10.0
@@ -67,6 +70,7 @@ func _start_attack() -> void:
 	if _attack_windup_timer and _attack_windup_timer.time_left > 0:
 		_attack_windup_timer.timeout.disconnect(_execute_attack)
 	_current_attack_type = randi() % 2
+	_play_anim("attack_%d" % _current_attack_type)
 	var windup: float = 0.4 if _current_attack_type == 1 else 0.2
 	_attack_windup_timer = get_tree().create_timer(windup)
 	_attack_windup_timer.timeout.connect(_execute_attack)
@@ -92,4 +96,16 @@ func _execute_kick() -> void:
 
 func _die() -> void:
 	current_state = State.DEAD
+	_play_anim("death")
 	queue_free()
+
+
+func _play_anim(name: String) -> void:
+	if anim and anim.has_animation(name):
+		anim.play(name)
+
+
+func apply_hit(stun_duration: float, knockback_force: float, damage: float, attacker_pos: Vector2, extra_impulse: Vector2 = Vector2.ZERO, reaction: HitReaction = HitReaction.LIGHT_STUN, combo_count: int = 1) -> void:
+	super.apply_hit(stun_duration, knockback_force, damage, attacker_pos, extra_impulse, reaction, combo_count)
+	if health > 0:
+		_play_anim("hurt")
