@@ -20,6 +20,9 @@ window/stretch/aspect="expand"
 renderer/rendering_method="forward_plus"
 textures/canvas_textures/default_texture_filter=0
 
+[autoload]
+UIManager="*res://src/ui/ui_manager.gd"
+
 [input]
 move_left={
     "deadzone": 0.2,
