@@ -21,7 +21,7 @@ func _ready() -> void:
 		_original_camera_offset = _camera_ref.offset
 
 
-func trigger_hitstop(duration: float = DEFAULT_HITSTOP_DURATION) -> void:
+func trigger_hitstop(duration: float = DEFAULT_HITSTOP_DURATION, pos: Vector2 = Vector2.ZERO) -> void:
 	if _hitstop_timer and _hitstop_timer.time_left > 0:
 		if _hitstop_timer.timeout.is_connected(_end_hitstop):
 			_hitstop_timer.timeout.disconnect(_end_hitstop)
@@ -29,6 +29,8 @@ func trigger_hitstop(duration: float = DEFAULT_HITSTOP_DURATION) -> void:
 	Engine.time_scale = 0.05
 	_hitstop_timer = get_tree().create_timer(duration, true, false, true)
 	_hitstop_timer.timeout.connect(_end_hitstop)
+	if pos != Vector2.ZERO:
+		spawn_vfx(pos, "spark")
 
 
 func _end_hitstop() -> void:
@@ -75,3 +77,15 @@ func _start_shake_coroutine() -> void:
 func trigger_hitstop_with_shake(hs_dur: float = DEFAULT_HITSTOP_DURATION, shake_intensity: float = 3.0) -> void:
 	trigger_hitstop(hs_dur)
 	trigger_shake(shake_intensity)
+
+func trigger_hitstop_with_shake_and_vfx(hs_dur: float, shake_intensity: float, pos: Vector2, vfx_type: String = "spark") -> void:
+	trigger_hitstop(hs_dur, pos)
+	trigger_shake(shake_intensity)
+
+func spawn_vfx(pos: Vector2, type: String = "spark") -> void:
+	var vfx_root: Node = get_node_or_null("../../VFXRoot")
+	if not vfx_root:
+		return
+	var mgr: Node = vfx_root.get_node_or_null("VFXManager")
+	if mgr and mgr.has_method("spawn"):
+		mgr.spawn(pos, type)
