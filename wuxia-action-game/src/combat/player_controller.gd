@@ -27,10 +27,20 @@ const NINGSHEN_PERFECT_WINDOW: float = 0.2
 const NINGSHEN_BUFF_DURATION: float = 3.0
 const NINGSHEN_BUFF_MULTIPLIER: float = 1.2
 
+const DODGE_SPEED: float = 800.0
+const DODGE_DURATION: float = 0.2
+const DODGE_IFRAMES: float = 0.15
+const DODGE_COOLDOWN: float = 1.0
+
 var is_parrying: bool = false
 var parry_timer: float = 0.0
 var has_damage_buff: bool = false
 var _buff_timer: SceneTreeTimer = null
+var is_dodging: bool = false
+var dodge_timer: float = 0.0
+var dodge_cooldown_remaining: float = 0.0
+var is_invulnerable: bool = false
+var _iframes_timer: SceneTreeTimer = null
 
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
@@ -44,12 +54,20 @@ func _physics_process(delta: float) -> void:
 	_handle_depth_input()
 	if is_dashing:
 		_process_dash(delta)
+	elif is_dodging:
+		move_and_slide()
 	else:
 		_handle_movement(delta)
 	if is_parrying:
 		parry_timer -= delta
 		if parry_timer <= 0.0:
 			_end_parry(false)
+	if is_dodging:
+		dodge_timer -= delta
+		if dodge_timer <= 0.0:
+			_end_dodge()
+	if dodge_cooldown_remaining > 0.0:
+		dodge_cooldown_remaining -= delta
 	_apply_depth_transition(delta)
 
 func _handle_depth_input() -> void:
@@ -74,14 +92,16 @@ func _apply_depth_transition(delta: float) -> void:
 	modulate = modulate.lerp(target_modulate, 10.0 * delta)
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("attack") and not is_dashing and not is_huifeng_animating:
+	if event.is_action_pressed("attack") and not is_dashing and not is_huifeng_animating and not is_dodging:
 		combo_engine.try_attack()
-	if event.is_action_pressed("skill_1"):
+	if event.is_action_pressed("skill_1") and not is_dodging:
 		_try_cast_pojun()
-	if event.is_action_pressed("skill_2"):
+	if event.is_action_pressed("skill_2") and not is_dodging:
 		_try_cast_huifeng()
-	if event.is_action_pressed("skill_3"):
+	if event.is_action_pressed("skill_3") and not is_dodging:
 		_try_cast_ningshen()
+	if event.is_action_pressed("dodge") and not is_dodging and dodge_cooldown_remaining <= 0 and not is_dashing and not is_parrying:
+		_start_dodge()
 
 func _try_cast_pojun() -> void:
 	if not skill_system.try_cast("pojun"):
@@ -167,6 +187,31 @@ func _execute_counter() -> void:
 func _clear_damage_buff() -> void:
 	has_damage_buff = false
 
+func _start_dodge() -> void:
+	is_dodging = true
+	is_invulnerable = true
+	dodge_timer = DODGE_DURATION
+	dodge_cooldown_remaining = DODGE_COOLDOWN
+
+	var direction := Input.get_axis("move_left", "move_right")
+	if direction == 0.0:
+		direction = 1.0 if scale.x > 0 else -1.0
+	velocity.x = direction * DODGE_SPEED
+
+	$Sprite.color = Color(1.0, 1.0, 1.0, 0.5)  # semi-transparent white for dodge
+
+	if _iframes_timer and _iframes_timer.time_left > 0:
+		_iframes_timer.timeout.disconnect(_end_dodge_iframes)
+	_iframes_timer = get_tree().create_timer(DODGE_IFRAMES)
+	_iframes_timer.timeout.connect(_end_dodge_iframes)
+
+func _end_dodge() -> void:
+	is_dodging = false
+	$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
+
+func _end_dodge_iframes() -> void:
+	is_invulnerable = false
+
 func _get_enemies_in_range(radius: float) -> Array:
 	var space_state := get_world_2d().direct_space_state
 	var query := PhysicsShapeQueryParameters2D.new()
@@ -184,6 +229,8 @@ func _get_enemies_in_range(radius: float) -> Array:
 	return enemies
 
 func take_damage(amount: float, source: Node) -> void:
+	if is_invulnerable:
+		return
 	if is_parrying:
 		_end_parry(true)
 		return
