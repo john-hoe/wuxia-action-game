@@ -1,0 +1,13 @@
+# Worktree isolation
+.worktrees/
+
+# Godot
+.godot/
+*.translation
+
+# Build output
+build/
+
+# Environment
+.env
+.env.*
