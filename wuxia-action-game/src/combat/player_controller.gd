@@ -45,6 +45,7 @@ var _iframes_timer: SceneTreeTimer = null
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
 @onready var hit_feedback: HitFeedback = $HitFeedback
+@onready var input_buffer: InputBuffer = $InputBuffer
 
 func _ready() -> void:
 	add_to_group("player")
@@ -98,15 +99,27 @@ func _apply_depth_transition(delta: float) -> void:
 	modulate = modulate.lerp(target_modulate, 10.0 * delta)
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("attack") and not is_dashing and not is_huifeng_animating and not is_dodging:
+	if event.is_action_pressed("attack"):
+		input_buffer.push("attack")
+	if event.is_action_pressed("skill_1"):
+		input_buffer.push("skill_1")
+	if event.is_action_pressed("skill_2"):
+		input_buffer.push("skill_2")
+	if event.is_action_pressed("skill_3"):
+		input_buffer.push("skill_3")
+	if event.is_action_pressed("dodge"):
+		input_buffer.push("dodge")
+
+func _process(_delta: float) -> void:
+	if input_buffer.consume("attack") and not is_dashing and not is_huifeng_animating and not is_dodging:
 		combo_engine.try_attack()
-	if event.is_action_pressed("skill_1") and not is_dodging:
+	elif input_buffer.consume("skill_1") and not is_dodging:
 		_try_cast_pojun()
-	if event.is_action_pressed("skill_2") and not is_dodging:
+	elif input_buffer.consume("skill_2") and not is_dodging:
 		_try_cast_huifeng()
-	if event.is_action_pressed("skill_3") and not is_dodging:
+	elif input_buffer.consume("skill_3") and not is_dodging:
 		_try_cast_ningshen()
-	if event.is_action_pressed("dodge") and not is_dodging and dodge_cooldown_remaining <= 0 and not is_dashing and not is_parrying:
+	elif input_buffer.consume("dodge") and not is_dodging and dodge_cooldown_remaining <= 0 and not is_dashing and not is_parrying:
 		_start_dodge()
 
 func _try_cast_pojun() -> void:

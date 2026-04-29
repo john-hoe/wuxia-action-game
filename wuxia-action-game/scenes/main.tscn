@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://main00100000000000001"]
+[gd_scene load_steps=9 format=3 uid="uid://main00100000000000001"]
 
 [ext_resource type="Script" path="res://src/combat/player_controller.gd" id="1"]
 [ext_resource type="Script" path="res://src/combat/combo_engine.gd" id="2"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://src/combat/aerial_state.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/enemies/mob.tscn" id="6"]
 [ext_resource type="Script" path="res://src/combat/hit_feedback.gd" id="7"]
+[ext_resource type="Script" path="res://src/combat/input_buffer.gd" id="8"]
 
 [node name="Game" type="Node2D"]
 
@@ -76,6 +77,9 @@ script = ExtResource("5")
 
 [node name="HitFeedback" type="Node" parent="Player"]
 script = ExtResource("7")
+
+[node name="InputBuffer" type="Node" parent="Player"]
+script = ExtResource("8")
 
 [node name="Mob1" parent="." instance=ExtResource("6")]
 position = Vector2(200, 540)
