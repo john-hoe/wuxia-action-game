@@ -14,6 +14,7 @@ const POJUN_STUN_DURATION: float = 0.5
 var is_dashing: bool = false
 var dash_direction: float = 1.0
 var dash_timer: float = 0.0
+var _dash_hit_enemies: Array = []
 
 @onready var combo_engine: Node = $ComboEngine
 @onready var skill_system: SkillSystem = $SkillSystem
@@ -76,15 +77,18 @@ func _process_dash(delta: float) -> void:
 
 	for i in get_slide_collision_count():
 		var col := get_slide_collision(i)
-		if col.get_collider() is BaseEnemy:
-			_hit_enemy_with_pojun(col.get_collider())
+		var enemy = col.get_collider()
+		if enemy is BaseEnemy and enemy not in _dash_hit_enemies:
+			_dash_hit_enemies.append(enemy)
+			_hit_enemy_with_pojun(enemy)
 
 	if dash_timer <= 0.0:
+		_dash_hit_enemies.clear()
 		is_dashing = false
 		$Sprite.color = Color(0.2, 0.4, 0.8)  # restore blue
 
 func _hit_enemy_with_pojun(enemy: Node) -> void:
-	enemy.apply_hit(stun_duration=POJUN_STUN_DURATION, knockback_force=300.0, damage=25.0)
+	enemy.apply_hit(stun_duration=POJUN_STUN_DURATION, knockback_force=300.0, damage=25.0, attacker_pos=global_position)
 
 func _on_combo_advanced(segment: int) -> void:
 	match segment:
